@@ -8,6 +8,20 @@
 
 ---
 
+## 2026-03-13
+
+### [KEND-NATIVE] 앱 초기 설정 및 Android/iOS 빌드 환경 구축
+
+- **프로젝트 초기 구성**: Expo + WebView 기반 사용자 앱(kend) 래핑 구조 구축
+- **WebView 구현**: 뒤로가기(Android 하드웨어 버튼 + iOS 스와이프), 로딩 인디케이터, 에러 화면(다시 시도) 구현
+- **앱 설정 완료**: 패키지명(`com.kend.app`), 딥링크 스킴(`kend://`), 아이콘/스플래시 경로 설정
+- **EAS Build 환경 구축**: preview(APK), production(AAB) 빌드 프로필 설정, Android Keystore 생성
+- **빌드 완료**: Android preview APK 빌드 성공, production AAB 빌드 준비 완료
+- **불필요한 의존성 제거**: Expo 템플릿 기본 패키지 중 미사용 패키지 정리
+- **문서화**: `readme/kend-native.md` 작성 (기술 스택, 프로젝트 구조, 빌드 방법, 버전 관리 규칙)
+
+---
+
 ## 2026-03-03
 
 ### [KEND-SELLER] 판매자 스토어 배너 관리 기능 추가

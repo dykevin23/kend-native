@@ -1,0 +1,31 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@1,700&amp;display=swap');
+    </style>
+    <linearGradient id="warmGradient" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFD599"/>
+      <stop offset="100%" stop-color="#FFEED0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#FFEED0"/>
+  <rect width="1024" height="1024" fill="url(#warmGradient)" opacity="0.25"/>
+
+  <!-- KEND wordmark - Arimo Italic Bold -->
+  <text
+    x="512"
+    y="596"
+    font-family="Arimo, Arial, sans-serif"
+    font-size="300"
+    font-weight="700"
+    font-style="italic"
+    fill="#163E64"
+    text-anchor="middle"
+    letter-spacing="-4"
+  >KEND</text>
+
+  <!-- Underline accent -->
+  <rect x="175" y="632" width="674" height="7" rx="3.5" fill="#163E64" opacity="0.2"/>
+</svg>

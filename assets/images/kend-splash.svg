@@ -1,0 +1,49 @@
+<svg width="375" height="812" viewBox="0 0 375 812" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Arimo:ital,wght@0,400;1,700&amp;display=swap');
+    </style>
+    <linearGradient id="splashGradient" x1="0" y1="0" x2="375" y2="812" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFD599"/>
+      <stop offset="100%" stop-color="#FFEED0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="375" height="812" fill="#FFEED0"/>
+  <rect width="375" height="812" fill="url(#splashGradient)" opacity="0.25"/>
+
+  <!-- Decorative circles -->
+  <circle cx="-20" cy="-20" r="160" fill="#163E64" opacity="0.04"/>
+  <circle cx="400" cy="840" r="200" fill="#163E64" opacity="0.04"/>
+
+  <!-- KEND wordmark - Arimo Italic Bold -->
+  <text
+    x="187.5"
+    y="418"
+    font-family="Arimo, Arial, sans-serif"
+    font-size="96"
+    font-weight="700"
+    font-style="italic"
+    fill="#163E64"
+    text-anchor="middle"
+    letter-spacing="-2"
+  >KEND</text>
+
+  <!-- Underline accent -->
+  <rect x="100" y="436" width="175" height="2.5" rx="1.25" fill="#163E64" opacity="0.25"/>
+
+  <!-- Tagline: Kids are an ENDuser -->
+  <text
+    x="187.5"
+    y="470"
+    font-family="Arimo, Arial, sans-serif"
+    font-size="13"
+    font-weight="400"
+    font-style="italic"
+    fill="#163E64"
+    text-anchor="middle"
+    opacity="0.5"
+    letter-spacing="1"
+  >Kids are an ENDuser</text>
+</svg>
