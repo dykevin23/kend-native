@@ -23,6 +23,11 @@
       "android": {
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
+      },
+      "ios": {
+        "appleId": "rlaehdus08@naver.com",
+        "ascAppId": "6761033065",
+        "appleTeamId": "7S4B5WQY99"
       }
     }
   }

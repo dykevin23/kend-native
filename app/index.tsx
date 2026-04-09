@@ -1,4 +1,6 @@
 import { StatusBar } from "expo-status-bar";
+import * as Linking from "expo-linking";
+import * as SplashScreen from "expo-splash-screen";
 import { useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -12,7 +14,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { WebViewNavigation } from "react-native-webview";
+import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { useFocusEffect } from "@react-navigation/native";
+
+// Google OAuth는 WebView 내 로그인을 차단(403 disallowed_useragent)하므로
+// 외부 브라우저로 열어야 한다.
+const EXTERNAL_BROWSER_PATTERNS = [
+  "accounts.google.com",
+];
 
 const WEB_APP_URL = "https://kend-seven.vercel.app";
 
@@ -21,6 +30,7 @@ export default function Home() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   // 안드로이드 하드웨어 뒤로가기 버튼: WebView 내 뒤로가기 처리
   useFocusEffect(
@@ -45,6 +55,18 @@ export default function Home() {
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
+  };
+
+  // Google OAuth 등 외부 브라우저로 열어야 하는 URL 처리
+  const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
+    const isExternal = EXTERNAL_BROWSER_PATTERNS.some((pattern) =>
+      request.url.includes(pattern)
+    );
+    if (isExternal) {
+      Linking.openURL(request.url);
+      return false; // WebView에서 로드하지 않음
+    }
+    return true;
   };
 
   const handleRetry = () => {
@@ -79,7 +101,13 @@ export default function Home() {
         style={styles.webview}
         onNavigationStateChange={handleNavigationStateChange}
         onLoadStart={() => setIsLoading(true)}
-        onLoadEnd={() => setIsLoading(false)}
+        onLoadEnd={() => {
+          setIsLoading(false);
+          if (isFirstLoad) {
+            SplashScreen.hideAsync();
+            setIsFirstLoad(false);
+          }
+        }}
         onError={() => setHasError(true)}
         onHttpError={(syntheticEvent) => {
           const { statusCode } = syntheticEvent.nativeEvent;
@@ -90,12 +118,13 @@ export default function Home() {
         domStorageEnabled={true}
         startInLoadingState={false}
         allowsBackForwardNavigationGestures={true} // iOS 스와이프 뒤로가기
+        onShouldStartLoadWithRequest={handleShouldStartLoad}
         // 캐시 및 성능
         cacheEnabled={true}
         // 보안
         originWhitelist={["https://*"]}
       />
-      {isLoading && (
+      {isLoading && !isFirstLoad && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#163756" />
         </View>
@@ -116,7 +145,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
   },
   errorContainer: {
     flex: 1,

@@ -8,6 +8,28 @@
 
 ---
 
+## 2026-04-09
+
+### [KEND-NATIVE] Google OAuth 외부 브라우저 처리
+
+- **WebView 내 Google 로그인 차단 대응**: Google의 `disallowed_useragent` 정책으로 인해 WebView 내부에서 Google OAuth가 403 에러 발생
+- **외부 브라우저 리다이렉트**: `accounts.google.com` URL 감지 시 `expo-linking`으로 시스템 브라우저(Chrome/Safari)에서 열도록 처리
+- **`onShouldStartLoadWithRequest` 활용**: WebView의 URL 요청을 가로채서 외부 브라우저 패턴 매칭 후 분기 처리
+
+### [KEND-NATIVE] Splash 화면 및 로딩 UX 개선
+
+- **Splash 유지 시간 연장**: 레이아웃 마운트 즉시 숨기던 방식에서 → WebView 첫 로드 완료 시까지 Splash 유지
+- **로딩 오버레이 반투명 처리**: 흰 배경(`#ffffff`) → 반투명 배경(`rgba(255,255,255,0.5)`)으로 변경하여 뒷 화면이 비치도록 개선
+- **첫 로드 시 로더 미표시**: Splash가 표시되는 동안에는 로딩 인디케이터를 숨기고, 이후 페이지 이동 시에만 반투명 로더 표시
+
+### [KEND-NATIVE] iOS 빌드 및 App Store 제출
+
+- **iOS 빌드 환경 구축**: Apple Distribution Certificate, Provisioning Profile 자동 생성 (EAS 관리)
+- **App Store Connect 연동**: `eas.json`에 `ascAppId`, `appleTeamId` 설정, App Store Connect API Key 생성
+- **iOS production 빌드 및 제출**: `eas build` → `eas submit`으로 App Store Connect에 빌드 업로드 완료
+
+---
+
 ## 2026-03-13
 
 ### [KEND-NATIVE] 앱 초기 설정 및 Android/iOS 빌드 환경 구축
