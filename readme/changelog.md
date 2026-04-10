@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-04-10
+
+### [KEND-NATIVE] Splash 이미지 전체 화면 적용
+
+- **스플래시 이미지 교체**: 기본 템플릿 `splash-icon.png` → 커스텀 `kend-splash-1080x1920.png`로 변경
+- **전체 화면 표시**: `resizeMode: "contain"` + `imageWidth: 200` → `resizeMode: "cover"`로 변경하여 전체 화면에 꽉 차게 표시
+
+---
+
 ## 2026-04-09
 
 ### [KEND-NATIVE] Google OAuth 외부 브라우저 처리
