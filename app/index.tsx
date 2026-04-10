@@ -1,7 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
-import { useRef, useState, useCallback } from "react";
+import * as WebBrowser from "expo-web-browser";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -18,10 +19,8 @@ import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTyp
 import { useFocusEffect } from "@react-navigation/native";
 
 // Google OAuth는 WebView 내 로그인을 차단(403 disallowed_useragent)하므로
-// 외부 브라우저로 열어야 한다.
-const EXTERNAL_BROWSER_PATTERNS = [
-  "accounts.google.com",
-];
+// SFSafariViewController / Chrome Custom Tabs로 열어야 한다.
+const GOOGLE_AUTH_PATTERN = "accounts.google.com";
 
 const WEB_APP_URL = "https://kend-seven.vercel.app";
 
@@ -57,14 +56,102 @@ export default function Home() {
     setCanGoBack(navState.canGoBack);
   };
 
-  // Google OAuth 등 외부 브라우저로 열어야 하는 URL 처리
-  const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
-    const isExternal = EXTERNAL_BROWSER_PATTERNS.some((pattern) =>
-      request.url.includes(pattern)
+  // 딥링크(kend://) 수신 시 WebView를 해당 경로로 이동
+  useEffect(() => {
+    const handleDeepLink = (event: { url: string }) => {
+      navigateWebViewFromDeepLink(event.url);
+    };
+
+    const subscription = Linking.addEventListener("url", handleDeepLink);
+
+    // 앱이 딥링크로 cold start된 경우
+    Linking.getInitialURL().then((url) => {
+      if (url) navigateWebViewFromDeepLink(url);
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const navigateWebViewFromDeepLink = (url: string) => {
+    const parsed = Linking.parse(url);
+    if (!parsed.path) return;
+
+    const params = parsed.queryParams ?? {};
+
+    // Google OAuth 콜백: 토큰을 WebView에 주입하여 세션 설정
+    if (
+      parsed.path === "auth/callback" &&
+      params.access_token &&
+      params.refresh_token
+    ) {
+      const js = `
+        (async function() {
+          try {
+            const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
+            // 웹앱의 기존 Supabase 인스턴스에 접근
+            if (window.__supabase) {
+              await window.__supabase.auth.setSession({
+                access_token: ${JSON.stringify(params.access_token)},
+                refresh_token: ${JSON.stringify(params.refresh_token)},
+              });
+              window.location.href = '/';
+            } else {
+              // fallback: localStorage에 직접 저장 후 새로고침
+              const storageKey = Object.keys(localStorage).find(k => k.includes('supabase') && k.includes('auth'));
+              if (storageKey) {
+                const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                session.access_token = ${JSON.stringify(params.access_token)};
+                session.refresh_token = ${JSON.stringify(params.refresh_token)};
+                localStorage.setItem(storageKey, JSON.stringify(session));
+              }
+              window.location.href = '/';
+            }
+          } catch(e) {
+            console.error('OAuth session injection failed:', e);
+            window.location.href = '/';
+          }
+        })();
+        true;
+      `;
+      webViewRef.current?.injectJavaScript(js);
+      return;
+    }
+
+    // 일반 딥링크: 해당 경로로 이동
+    const queryString = Object.keys(params).length
+      ? "?" +
+        Object.entries(params)
+          .map(
+            ([k, v]) =>
+              `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`
+          )
+          .join("&")
+      : "";
+    const webUrl = `${WEB_APP_URL}/${parsed.path}${queryString}`;
+    webViewRef.current?.injectJavaScript(
+      `window.location.href = ${JSON.stringify(webUrl)}; true;`
     );
-    if (isExternal) {
-      Linking.openURL(request.url);
-      return false; // WebView에서 로드하지 않음
+  };
+
+  // Google OAuth → SFSafariViewController / Chrome Custom Tabs로 열기
+  const handleGoogleAuth = async (url: string) => {
+    try {
+      const redirectUrl = Linking.createURL("auth/callback");
+      const result = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
+      if (result.type === "success" && result.url) {
+        navigateWebViewFromDeepLink(result.url);
+      }
+    } catch {
+      // fallback: 외부 브라우저
+      Linking.openURL(url);
+    }
+  };
+
+  // OAuth URL 라우팅 처리
+  const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
+    if (request.url.includes(GOOGLE_AUTH_PATTERN)) {
+      handleGoogleAuth(request.url);
+      return false;
     }
     return true;
   };

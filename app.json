@@ -11,14 +11,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kend.app",
-      "buildNumber": "3",
+      "buildNumber": "5",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.kend.app",
-      "versionCode": 7,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFEED0"
@@ -32,9 +32,11 @@
         {
           "image": "./assets/images/kend-splash-1080x1920.png",
           "resizeMode": "cover",
-          "backgroundColor": "#FFEED0"
+          "backgroundColor": "#FFEED0",
+          "enableFullScreenImage_legacy": true
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
