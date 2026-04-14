@@ -8,14 +8,19 @@
 
 ---
 
+## 2026-04-14
+
+### [KEND-NATIVE] 소셜 로그인(네이버/카카오/구글) 앱 내 정상 동작
+
+- **Google OAuth WebView 차단 우회**: WebView의 `userAgent`를 일반 모바일 Safari/Chrome으로 설정하여 Google의 `disallowed_useragent` 403 차단 회피 → OAuth 전체 흐름이 WebView 안에서 완결
+- **쿠키 설정 추가**: `sharedCookiesEnabled={true}`(iOS), `thirdPartyCookiesEnabled={true}`(Android)로 Google OAuth redirect 체인에서 세션 쿠키 유실 방지
+- **Google Cloud Console Client Secret 재발급**: 기존 secret이 Supabase에 저장된 값과 불일치(`invalid_client` 에러) → 새 secret 발급 후 Supabase Provider 설정 업데이트
+- **불필요한 코드 제거**: 인앱 브라우저(`expo-web-browser`), 딥링크(`expo-linking`), 토큰 주입 로직 전부 제거. WebView + User-Agent 변경만으로 처리
+- **네이버/카카오/구글 로그인 & 회원가입**: 앱, 웹 모두 테스트 완료
+
+---
+
 ## 2026-04-10
-
-### [KEND-NATIVE] 소셜 로그인 OAuth redirect 처리
-
-- **Google OAuth 인앱 브라우저 전환**: `Linking.openURL()` → `expo-web-browser`의 `openAuthSessionAsync()`로 변경하여 SFSafariViewController(iOS) / Chrome Custom Tabs(Android)에서 로그인 처리
-- **딥링크 수신 처리**: `kend://` 스킴 URL 수신 시 WebView를 해당 경로로 이동하는 리스너 추가 (warm start + cold start 모두 대응)
-- **세션 토큰 주입**: 외부 브라우저 ↔ WebView 간 쿠키 미공유 문제 해결을 위해, 딥링크로 전달받은 `access_token`/`refresh_token`을 WebView에 JavaScript로 주입하여 `supabase.auth.setSession()` 호출
-- **Naver/Kakao OAuth**: WebView 내부에서 정상 동작 확인, 별도 처리 불필요
 
 ### [KEND-NATIVE] Splash 이미지 전체 화면 적용
 

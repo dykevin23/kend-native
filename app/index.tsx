@@ -1,8 +1,6 @@
 import { StatusBar } from "expo-status-bar";
-import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
-import * as WebBrowser from "expo-web-browser";
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -15,14 +13,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { WebViewNavigation } from "react-native-webview";
-import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { useFocusEffect } from "@react-navigation/native";
 
-// Google OAuth는 WebView 내 로그인을 차단(403 disallowed_useragent)하므로
-// SFSafariViewController / Chrome Custom Tabs로 열어야 한다.
-const GOOGLE_AUTH_PATTERN = "accounts.google.com";
-
 const WEB_APP_URL = "https://kend-seven.vercel.app";
+
+// Google OAuth가 WebView를 차단(403 disallowed_useragent)하지 않도록
+// 일반 모바일 Safari User-Agent를 사용한다.
+const CUSTOM_USER_AGENT = Platform.select({
+  ios: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+  android:
+    "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+});
 
 export default function Home() {
   const webViewRef = useRef<WebView>(null);
@@ -54,106 +55,6 @@ export default function Home() {
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
-  };
-
-  // 딥링크(kend://) 수신 시 WebView를 해당 경로로 이동
-  useEffect(() => {
-    const handleDeepLink = (event: { url: string }) => {
-      navigateWebViewFromDeepLink(event.url);
-    };
-
-    const subscription = Linking.addEventListener("url", handleDeepLink);
-
-    // 앱이 딥링크로 cold start된 경우
-    Linking.getInitialURL().then((url) => {
-      if (url) navigateWebViewFromDeepLink(url);
-    });
-
-    return () => subscription.remove();
-  }, []);
-
-  const navigateWebViewFromDeepLink = (url: string) => {
-    const parsed = Linking.parse(url);
-    if (!parsed.path) return;
-
-    const params = parsed.queryParams ?? {};
-
-    // Google OAuth 콜백: 토큰을 WebView에 주입하여 세션 설정
-    if (
-      parsed.path === "auth/callback" &&
-      params.access_token &&
-      params.refresh_token
-    ) {
-      const js = `
-        (async function() {
-          try {
-            const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm');
-            // 웹앱의 기존 Supabase 인스턴스에 접근
-            if (window.__supabase) {
-              await window.__supabase.auth.setSession({
-                access_token: ${JSON.stringify(params.access_token)},
-                refresh_token: ${JSON.stringify(params.refresh_token)},
-              });
-              window.location.href = '/';
-            } else {
-              // fallback: localStorage에 직접 저장 후 새로고침
-              const storageKey = Object.keys(localStorage).find(k => k.includes('supabase') && k.includes('auth'));
-              if (storageKey) {
-                const session = JSON.parse(localStorage.getItem(storageKey) || '{}');
-                session.access_token = ${JSON.stringify(params.access_token)};
-                session.refresh_token = ${JSON.stringify(params.refresh_token)};
-                localStorage.setItem(storageKey, JSON.stringify(session));
-              }
-              window.location.href = '/';
-            }
-          } catch(e) {
-            console.error('OAuth session injection failed:', e);
-            window.location.href = '/';
-          }
-        })();
-        true;
-      `;
-      webViewRef.current?.injectJavaScript(js);
-      return;
-    }
-
-    // 일반 딥링크: 해당 경로로 이동
-    const queryString = Object.keys(params).length
-      ? "?" +
-        Object.entries(params)
-          .map(
-            ([k, v]) =>
-              `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`
-          )
-          .join("&")
-      : "";
-    const webUrl = `${WEB_APP_URL}/${parsed.path}${queryString}`;
-    webViewRef.current?.injectJavaScript(
-      `window.location.href = ${JSON.stringify(webUrl)}; true;`
-    );
-  };
-
-  // Google OAuth → SFSafariViewController / Chrome Custom Tabs로 열기
-  const handleGoogleAuth = async (url: string) => {
-    try {
-      const redirectUrl = Linking.createURL("auth/callback");
-      const result = await WebBrowser.openAuthSessionAsync(url, redirectUrl);
-      if (result.type === "success" && result.url) {
-        navigateWebViewFromDeepLink(result.url);
-      }
-    } catch {
-      // fallback: 외부 브라우저
-      Linking.openURL(url);
-    }
-  };
-
-  // OAuth URL 라우팅 처리
-  const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
-    if (request.url.includes(GOOGLE_AUTH_PATTERN)) {
-      handleGoogleAuth(request.url);
-      return false;
-    }
-    return true;
   };
 
   const handleRetry = () => {
@@ -205,7 +106,10 @@ export default function Home() {
         domStorageEnabled={true}
         startInLoadingState={false}
         allowsBackForwardNavigationGestures={true} // iOS 스와이프 뒤로가기
-        onShouldStartLoadWithRequest={handleShouldStartLoad}
+        userAgent={CUSTOM_USER_AGENT}
+        // 쿠키 설정
+        sharedCookiesEnabled={true} // iOS: 시스템 쿠키 저장소 공유
+        thirdPartyCookiesEnabled={true} // Android: 서드파티 쿠키 허용
         // 캐시 및 성능
         cacheEnabled={true}
         // 보안
@@ -232,7 +136,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    backgroundColor: "#FFEED0",
   },
   errorContainer: {
     flex: 1,

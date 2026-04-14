@@ -11,14 +11,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kend.app",
-      "buildNumber": "5",
+      "buildNumber": "9",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.kend.app",
-      "versionCode": 9,
+      "versionCode": 13,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFEED0"
