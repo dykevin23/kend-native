@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-04-15
+
+### [KEND-NATIVE] iOS 심사 리젝 대응 — 카메라 크래시 수정
+
+- **카메라 권한 추가**: `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`을 `app.json` infoPlist에 추가 — 프로필 사진 촬영 시 권한 없어 크래시 발생하던 문제 해결
+- **Apple Vision Pro 지원 해제**: App Store Connect에서 Vision Pro 호환 체크 해제
+
+---
+
 ## 2026-04-14
 
 ### [KEND-NATIVE] 소셜 로그인(네이버/카카오/구글) 앱 내 정상 동작

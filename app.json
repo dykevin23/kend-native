@@ -11,14 +11,16 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kend.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "프로필 사진 촬영을 위해 카메라 접근 권한이 필요합니다.",
+        "NSPhotoLibraryUsageDescription": "프로필 사진 선택을 위해 사진 라이브러리 접근 권한이 필요합니다."
       }
     },
     "android": {
       "package": "com.kend.app",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFEED0"
@@ -36,7 +38,8 @@
           "enableFullScreenImage_legacy": true
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true
