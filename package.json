@@ -8,7 +8,13 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:ios": "eas build --platform ios --profile production",
+    "build:android": "eas build --platform android --profile production",
+    "build:all": "eas build --platform all --profile production",
+    "deploy:ios": "eas submit --platform ios --latest",
+    "deploy:android": "eas submit --platform android --latest",
+    "deploy:all": "eas submit --platform all --latest"
   },
   "dependencies": {
     "@react-navigation/native": "^7.1.6",

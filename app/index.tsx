@@ -3,6 +3,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   Platform,
   StyleSheet,
@@ -25,24 +26,61 @@ const CUSTOM_USER_AGENT = Platform.select({
     "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
 });
 
+// 뒤로가기 차단 URL 패턴 (readme/native-swipe-blacklist.md 참고)
+// 로그인/가입 플로우, 결제 콜백, 자녀 정보 입력 화면
+const BACK_BLOCKED_REGEX =
+  /^\/(auth|payments)(\/|$)|^\/children\/(submit|\d+\/(edit|growth))$/;
+
+const isBackBlocked = (url: string): boolean => {
+  try {
+    const pathname = new URL(url).pathname;
+    return BACK_BLOCKED_REGEX.test(pathname);
+  } catch {
+    return false;
+  }
+};
+
 export default function Home() {
   const webViewRef = useRef<WebView>(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [backBlocked, setBackBlocked] = useState(false);
 
-  // 안드로이드 하드웨어 뒤로가기 버튼: WebView 내 뒤로가기 처리
+  // 안드로이드 하드웨어 뒤로가기 버튼 처리
   useFocusEffect(
     useCallback(() => {
       if (Platform.OS !== "android") return;
 
       const onBackPress = () => {
+        // Blacklist URL: 확인 Alert 표시
+        if (backBlocked) {
+          Alert.alert(
+            "화면을 나가시겠습니까?",
+            "입력 중인 내용이 사라질 수 있어요.",
+            [
+              { text: "취소", style: "cancel" },
+              {
+                text: "나가기",
+                style: "destructive",
+                onPress: () => {
+                  if (canGoBack && webViewRef.current) {
+                    webViewRef.current.goBack();
+                  } else {
+                    BackHandler.exitApp();
+                  }
+                },
+              },
+            ]
+          );
+          return true;
+        }
         if (canGoBack && webViewRef.current) {
           webViewRef.current.goBack();
-          return true; // 기본 동작(앱 종료) 방지
+          return true;
         }
-        return false; // 기본 동작 허용 (앱 종료)
+        return false;
       };
 
       const subscription = BackHandler.addEventListener(
@@ -50,11 +88,33 @@ export default function Home() {
         onBackPress
       );
       return () => subscription.remove();
-    }, [canGoBack])
+    }, [canGoBack, backBlocked])
   );
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
+    setBackBlocked(isBackBlocked(navState.url));
+  };
+
+  // 로딩 오버레이 debounce: 300ms 이내 완료되는 네비게이션에서는
+  // 오버레이를 표시하지 않아 스와이프 뒤로가기 시 번쩍임 방지
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleLoadStart = () => {
+    if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    loadingTimerRef.current = setTimeout(() => setIsLoading(true), 300);
+  };
+
+  const handleLoadEnd = () => {
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+    setIsLoading(false);
+    if (isFirstLoad) {
+      SplashScreen.hideAsync();
+      setIsFirstLoad(false);
+    }
   };
 
   const handleRetry = () => {
@@ -88,14 +148,8 @@ export default function Home() {
         source={{ uri: WEB_APP_URL }}
         style={styles.webview}
         onNavigationStateChange={handleNavigationStateChange}
-        onLoadStart={() => setIsLoading(true)}
-        onLoadEnd={() => {
-          setIsLoading(false);
-          if (isFirstLoad) {
-            SplashScreen.hideAsync();
-            setIsFirstLoad(false);
-          }
-        }}
+        onLoadStart={handleLoadStart}
+        onLoadEnd={handleLoadEnd}
         onError={() => setHasError(true)}
         onHttpError={(syntheticEvent) => {
           const { statusCode } = syntheticEvent.nativeEvent;
@@ -105,7 +159,9 @@ export default function Home() {
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={false}
-        allowsBackForwardNavigationGestures={true} // iOS 스와이프 뒤로가기
+        allowsBackForwardNavigationGestures={!backBlocked} // iOS: blacklist에서는 스와이프 비활성화
+        bounces={false} // iOS: 세로 스크롤 bounce 제거
+        overScrollMode="never" // Android: 세로 스크롤 over-scroll 제거
         userAgent={CUSTOM_USER_AGENT}
         // 쿠키 설정
         sharedCookiesEnabled={true} // iOS: 시스템 쿠키 저장소 공유

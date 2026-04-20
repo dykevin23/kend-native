@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-04-20
+
+### [KEND-NATIVE] 뒤로가기 UX 개선 — URL Blacklist 기반 스와이프/백버튼 차단
+
+- **URL Blacklist 정의**: 로그인/가입(`/auth/*`), 결제 콜백(`/payments/*`), 자녀 정보 입력(`/children/submit`, `/children/{id}/edit`, `/children/{id}/growth`)에서 뒤로가기 차단 — 입력 중 데이터 유실, 결제 흐름 중단 등 UX 사고 방지 ([상세 스펙](./native-swipe-blacklist.md))
+- **iOS 스와이프 동적 비활성화**: `onNavigationStateChange`로 현재 URL 추적 → blacklist 매칭 시 `allowsBackForwardNavigationGestures={false}` 전환
+- **Android 뒤로가기 확인 Alert**: blacklist URL에서 하드웨어 back 버튼 누르면 "화면을 나가시겠습니까? 입력 중인 내용이 사라질 수 있어요." 확인 표시
+- **모달/바텀시트는 Radix UI가 자체 처리**: Radix가 history entry를 push하는 구조라 뒤로가기 시 자동으로 닫힘 → 네이티브에서 별도 처리 불필요
+
+### [KEND-NATIVE] 스와이프 뒤로가기 번쩍임 & 스크롤 bounce 개선
+
+- **로딩 오버레이 debounce(300ms)**: 캐시된 back/forward 네비게이션에서 로딩 오버레이가 번쩍이는 현상 완화 — 300ms 이내 완료되는 네비게이션은 오버레이 미표시
+- **WebView bounce 제거**: iOS `bounces={false}`, Android `overScrollMode="never"` 설정 — 스크롤 없는 화면에서 세로 over-scroll 방지
+- **참고**: "이전 화면이 잠깐 보였다가 재로드되는" 현상은 WKWebView의 back-forward cache(bfcache)가 SSR 응답 헤더(`Cache-Control: no-store` 등)로 인해 비활성화되어 발생 → 웹앱 쪽 헤더 조정이 근본 해결책
+
+### [KEND-NATIVE] 빌드/배포 스크립트 추가
+
+- `package.json`에 `build:ios`, `build:android`, `build:all`, `deploy:ios`, `deploy:android`, `deploy:all` 스크립트 추가
+
+---
+
 ## 2026-04-15
 
 ### [KEND-NATIVE] iOS 심사 리젝 대응 — 카메라 크래시 수정
