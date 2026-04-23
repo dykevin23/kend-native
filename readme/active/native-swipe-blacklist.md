@@ -84,7 +84,7 @@
 
 ## 관련 파일
 
-- 라우트 정의: [app/routes.ts](../app/routes.ts)
+- 라우트 정의: [app/routes.ts](../../app/routes.ts)
 - 인증 페이지: `app/features/auth/pages/`
 - 결제 페이지: `app/features/payments/pages/`
 - 자녀 페이지: `app/features/children/pages/`
