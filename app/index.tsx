@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { WebViewNavigation } from "react-native-webview";
+import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { useFocusEffect } from "@react-navigation/native";
 
 const WEB_APP_URL = "https://kend-seven.vercel.app";
@@ -99,13 +100,22 @@ export default function Home() {
   // 로딩 오버레이 debounce: 300ms 이내 완료되는 네비게이션에서는
   // 오버레이를 표시하지 않아 스와이프 뒤로가기 시 번쩍임 방지
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 뒤로/앞으로 네비게이션(스와이프 백 포함)에서는 로딩 오버레이를 띄우지 않는다
+  const isBackForwardRef = useRef(false);
+
+  const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
+    isBackForwardRef.current = request.navigationType === "backforward";
+    return true;
+  };
 
   const handleLoadStart = () => {
     if (loadingTimerRef.current) clearTimeout(loadingTimerRef.current);
+    if (isBackForwardRef.current) return;
     loadingTimerRef.current = setTimeout(() => setIsLoading(true), 300);
   };
 
   const handleLoadEnd = () => {
+    isBackForwardRef.current = false;
     if (loadingTimerRef.current) {
       clearTimeout(loadingTimerRef.current);
       loadingTimerRef.current = null;
@@ -148,6 +158,7 @@ export default function Home() {
         source={{ uri: WEB_APP_URL }}
         style={styles.webview}
         onNavigationStateChange={handleNavigationStateChange}
+        onShouldStartLoadWithRequest={handleShouldStartLoad}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
         onError={() => setHasError(true)}
