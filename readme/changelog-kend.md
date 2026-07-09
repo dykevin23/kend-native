@@ -7,6 +7,77 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-07-09
+
+### [KEND] 결제 루프 E2E 검증 완료 (테스트 키)
+
+- 주문 생성 → TossPayments 결제(docs 테스트 키) → confirm → `order_groups.status=paid` + payments 저장 + 장바구니 정리 + 주문내역 노출까지 **전 흐름 로컬 동작 검증**
+- 실패/중단 결제는 `payment_in_progress`로 남고 주문내역 UI에서 비노출됨(설계대로) 확인. (미완료 → `failed` 정리 cron은 여전히 미구현)
+- `payment-success-page`의 `raw_response`를 `Json`으로 캐스팅해 tsc 오류 해소
+- (참고) 법인 설립·법인 계좌 완료로 결제/정산 외부 의존성 해소. TossPayments 실키(기본 결제 패키지)·NICE 본인확인 신청 → 심사 2~4주 대기
+
+### [KEND] 로컬 소셜 로그인 리다이렉트 수정
+
+- 로컬 dev에서 소셜 로그인 시 Vercel로 튕기던 문제 해결. 원인: Supabase Auth Redirect URLs의 localhost 항목이 `http://localhost:5173/*`(단일 `*`)라 다단계 콜백 경로(`/auth/social/kakao/complete`)를 매칭 못 해 Site URL(Vercel)로 폴백 → `/*`를 `/**`로 수정
+
+---
+
+## 2026-06-24
+
+### [KEND] 디버그 console.log 정리 (P0-3 에러 핸들링)
+
+- 결제/주문 플로우 디버그 로그(`product-purchase-modal` 3건, `order-action` 3건) + `select-accordion`·`address-manage-modal` 디버그 로그 제거 (총 8건)
+- `console.error`(에러 로깅 17건)와 `create-naver-user` Edge Function 서버 로그는 유지 — PostHog 전환은 별도 작업
+- 동작 영향 없는 로그 삭제 (타입체크 통과로 검증)
+
+### [KEND] 오프라인 감지 추가 (P0-3 에러 핸들링)
+
+- **`useNetworkStatus` 훅** (`app/hooks/useNetworkStatus.ts`): `useSyncExternalStore` 기반 online/offline 감지. SSR 안전을 위해 `getServerSnapshot`(서버에선 항상 online 가정) 포함 → hydration mismatch 방지
+- **`OfflineBanner`** (`app/common/components/offline-banner.tsx`): 오프라인 시 화면 상단 고정 배너("인터넷 연결을 확인해주세요"), iOS safe-area(`--safe-area-inset-top`) 반영. `root.tsx` Layout에 연동
+- 실기기 비행기모드 테스트로 WebView 동작 확인 완료 → 네이티브 netinfo 브리지(에러 핸들링 로드맵 N-3) 보강 불필요
+
+### [KEND] 문서 체계 정비 (overview/changelog 운영 방식)
+
+- **overview.md를 단일 대시보드로 복구**(stale 4월본 → 현재 상태) + 작성 표준을 `core/readme-structure-guide.md §8`(방식 vs 내용 구분)로 명문화 — 3개 프로젝트 공통
+- **`/changelog` 명령어 개편**: changelog(git 기준 누락분 append) + overview(현황 CRUD)를 함께 갱신하도록. kend/native/seller 동일 적용
+
+---
+
+## 2026-06-23
+
+### [KEND] 계획 문서 현실화 (milestones / roadmap)
+
+- 코드 실측으로 보드 정정: **주문/결제 도메인 거의 구현됨**(주문 스키마 전체·주문 생성·TossPayments Confirm API·결제 success/fail 페이지·결제 위젯). 남은 건 `PAYMENT_COMING_SOON` 해제 + Toss 테스트 키(EXT-3) + E2E 테스트
+- **휴대폰 인증(SMS OTP) 출시 후로 이연** 반영(이메일 비밀번호 재설정으로 대체, 아이디 찾기 제거). **RLS 전무(DB 전체 ~33개 테이블) → 출시 전 하드닝(P4-3)으로 일정화**
+- iOS 심사 2달+ 정체 대응 트랙(ASC 상태/Resolution Center 확인 → escalate → 빌드 리셋 재제출) 명시
+
+---
+
+## 2026-06-17
+
+### [KEND] 로그인/비밀번호 재설정 UX 수정
+
+- **문구 통일**: 로그인 화면의 "비밀번호 찾기" → "비밀번호 재설정" (find-password 페이지 제목도 동일하게 변경)
+- **로그인 실패 메시지 수정**: 비밀번호 오류 시 "알 수 없는 오류"로 표시되던 문제 해결. `error-handler` 가 Supabase `AuthError`(Error 인스턴스이면서 `code` 보유)를 `instanceof Error` 로 먼저 처리해 `code`(invalid_credentials) 매핑을 건너뛰던 순서 버그 → code 우선 확인하도록 수정 + 메시지 fallback 추가 → "이메일 또는 비밀번호가 올바르지 않아요" 정상 표시
+- **token_hash 재설정 검증**: 메일 링크의 화면 미입력 검증은 브라우저 네이티브(`required`) 사용 중 — 폼 validation 표준화는 별도 todo 로 분리 ([form-validation-standard.md](./todo/form-validation-standard.md))
+
+### [KEND] 이메일 기반 비밀번호 재설정 추가 + 아이디 찾기 제거
+
+- **비밀번호 찾기** (`/auth/find-password`): 이메일 입력 → Supabase `resetPasswordForEmail` 로 재설정 링크 발송(redirectTo = `REDIRECT_LOGIN_URL/auth/reset-password`). 이메일 존재 여부/계정 유형은 노출하지 않고 항상 동일 응답(열거 방지)
+- **비밀번호 재설정** (`/auth/reset-password`): 메일 링크 도착지. loader 가 `code` 를 세션으로 교환(소셜 콜백과 동일 패턴) 후 깨끗한 URL 로 redirect, 새 비밀번호 입력 → `updateUser` → 로그아웃 후 로그인 이동. 무효/만료 링크 안내 포함
+- **아이디 찾기 제거**: 본인 인증 수단(휴대폰 등) 없이는 이메일을 안전하게 되돌려줄 방법이 없어 기능 제외. 로그인 페이지에서 "아이디 찾기" 링크 삭제(404 나던 링크 정리)
+- 소셜 가입자가 자기 소셜 이메일로 재설정하면 비밀번호가 추가되어 이메일 로그인도 가능해짐(허용)
+- 참고: 로그인 시도제한/캡차 등 하드닝은 별도 항목으로 보류
+
+### [KEND] 휴대폰 인증(SMS OTP) 출시 후로 보류 결정
+
+- **결정**: 휴대폰 SMS 인증을 MVP에서 제외하고 출시 후로 이연. SMS OTP는 본인인증(NICE)이 아니라 번호 점유 확인일 뿐이고, 비밀번호 찾기는 Supabase 이메일 재설정으로 대체 가능하며 출시 블로커가 아님
+- **코드 보존**: 휴대폰 인증 전체 구현(가입 게이트/OTP Edge Function/추가정보/아이디·비번 찾기/번호 중복방지/트리거 정비)은 **`feature/phone-auth` 브랜치(commit d6ec2b0)** 에 커밋해 보존. kend-newbuild 에는 미반영(원복)
+- **대체**: 출시 전 계정 복구는 이메일 기반 비밀번호 재설정으로 처리
+- 상세: [readme/todo/phone-auth-plan.md](./todo/phone-auth-plan.md) 상단 보류 배너 참조
+
+---
+
 ## 2026-05-07
 
 ### [KEND] iOS swipe back UX 개선 — clientLoader 캐시 도입 (부분 적용)
