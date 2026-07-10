@@ -10,4 +10,7 @@
 - **overview·changelog는 `/changelog` 명령어로만 갱신한다.** Claude는 **선제적으로 작성하지 않는다** (사용자가 직접 호출).
 - **완료는 테스트로 동작 확인된 뒤에만** ✅로 기록. 아직이면 "진행 중"/"구현됨(테스트 대기)".
 - overview 작성 표준(방식 vs 내용) → `readme/core/readme-structure-guide.md §8`.
-- **타 패키지 진행상황**은 그 패키지 changelog(`changelog-kend.md`, `changelog-seller.md` — 이 repo에도 복사본 존재)로 참조한다. changelog 3종의 프로젝트 간 sync는 **kend의 `scripts/sync-changelogs.sh` 실행**으로 처리(각 패키지 원본을 3개 repo에 복사). 원본(canonical): changelog-kend←kend, native←kend-native, seller←kend-seller.
+- **출시까지 전체 Phase 진행상황**은 `readme/kend-milestones.md`(플랫폼 전체 트래커, 3개 프로젝트 공유). 큰 계획은 `readme/kend-roadmap-to-launch.md`.
+- **타 패키지 진행상황**은 그 패키지 changelog(`changelog-kend.md`, `changelog-seller.md` — 이 repo에도 복사본 존재)로 참조한다.
+- **공유 문서 sync**: kend에서 `bash scripts/sync-docs.sh` 실행. 대상 = milestones · roadmap · core 공통문서 · changelog 3종. **overview는 로컬이라 sync 안 함.**
+- ⚠️ **공유 문서(milestones/roadmap/core)는 kend에서만 수정한다.** 여기서 고치면 sync 시 덮어써진다. 이 프로젝트에서 수정할 것은 `changelog-native.md`와 `overview.md`.

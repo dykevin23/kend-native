@@ -72,6 +72,7 @@ Kend 플랫폼은 다음 3가지 Role을 정의한다.
 - Kend(사용자 앱)과 Kend-Seller(판매자 사이트)는 동일한 Supabase Auth 시스템을 사용한다.
 - 로그인 시 이메일/비밀번호 인증 자체는 공통으로 처리된다.
 - 인증 이후, profile 테이블의 role 값을 기준으로 앱 접근을 제한한다.
+
   - Kend(사용자 앱): role = customer 인 사용자만 접근 가능
   - Kend-Seller(판매자 사이트): role = seller 인 사용자만 접근 가능
 

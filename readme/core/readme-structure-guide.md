@@ -100,7 +100,7 @@ todo/  ──(작업 시작)──▶  active/  ──(완료)──▶  archive
 | `changelog-seller.md` | KEND-SELLER 판매자 관리자 웹 |
 | `changelog-native.md` | KEND-NATIVE React Native WebView 앱 |
 
-3개 파일은 **모든 프로젝트에 동일하게 존재**하며, 각 저장소에서 수동으로 동기화한다. 이를 통해 어느 프로젝트에서 작업 중이더라도 다른 프로젝트의 진행 상황을 파악할 수 있다.
+3개 파일은 **모든 프로젝트에 동일하게 존재**하며, `bash scripts/sync-docs.sh`(kend에서 실행)로 동기화한다. 이를 통해 어느 프로젝트에서 작업 중이더라도 다른 프로젝트의 진행 상황을 파악할 수 있다. 각 changelog의 원본(canonical)은 그 이름의 프로젝트다.
 
 ### 항목 형식
 
@@ -151,7 +151,7 @@ todo/  ──(작업 시작)──▶  active/  ──(완료)──▶  archive
 
 1. 해당 프로젝트의 `readme/` 폴더를 본 가이드의 구조대로 정리
 2. 기존 md 파일들을 위 기준에 따라 `core/active/todo/archive`로 분류
-3. `changelog-kend.md / changelog-seller.md / changelog-native.md` 3개 파일을 모두 두고, 각 시스템의 이력을 수동으로 sync
+3. `changelog-kend.md / changelog-seller.md / changelog-native.md` 3개 파일을 모두 두고, `scripts/sync-docs.sh`로 sync
 4. 이 가이드 문서(`readme-structure-guide.md`)도 `core/`에 함께 두어 기준을 공유
 
 ---
@@ -184,7 +184,9 @@ todo/  ──(작업 시작)──▶  active/  ──(완료)──▶  archive
 - overview는 **각 프로젝트 기준으로 작성**한다 (kend는 kend 현황, native는 native 현황, seller는 seller 현황).
 - 따라서 overview는 **프로젝트 간 복사/sync 대상이 아니다.**
   - ⚠️ 과거 native/seller가 kend overview를 그대로 복붙해 stale해진 사례 있음 → **복붙 금지.**
-- 프로젝트 간 공유·sync하는 건 **core 문서 + changelog 3종**뿐. overview는 **로컬**.
+- 프로젝트 간 공유·sync하는 건 **core 공통문서 + changelog 3종 + `kend-milestones.md` + `kend-roadmap-to-launch.md`**. overview는 **로컬**.
+  - sync: `bash scripts/sync-docs.sh` (kend에서 실행). 공유 문서의 canonical은 **kend**(changelog만 각 이름의 프로젝트).
+  - ⚠️ **공유 문서는 kend에서만 수정한다.** 다른 repo에서 고치면 sync 시 덮어써진다.
 
 ### 8.3 한눈 정리
 
