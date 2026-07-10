@@ -7,7 +7,32 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-07-10
+
+### [KEND] 주문 취소 + 전액 환불 (P1-5)
+
+- **`cancelPayment()`** (`payments/mutations.server.ts`): TossPayments 결제 취소 API 연동. `Idempotency-Key` 헤더로 재시도 시 **이중 환불 방지**
+- **`cancelOrderGroup()`** (`orders/mutations.server.ts` 신규): ①본인 주문·`paid`·배송 전 검증 → ②Toss 전액 취소 → ③DB 상태 전환. ③은 `applyCancellationToDb()`로 분리해 **추후 Postgres RPC(트랜잭션)로 교체 가능**하게 설계
+- **상태 전환**: `order_groups`/`orders`/`delivery_items` → `cancelled`, `payments` → `CANCELED`. 배송 전 구매자 취소는 **`cancelled`** 를 쓰고 반품 환불용 `refunded`는 예약(정산·통계 구분 목적)
+- `/orders/action` 에 `intent=cancel` 분기 추가. 주문내역 카드에 **"주문 취소" 버튼**(취소 가능할 때만) + 확인 팝업 + 실패 사유 알림
+- **취소 단위 = order_group(결제 단위) 전체.** 부분 취소(상품·판매자 단위)와 구매확정은 배송(Phase 2) 도입 이후
+- 로컬 테스트 키로 취소 → 환불 → 상태 전환 **동작 확인 완료**
+- ⚠️ 한계: Toss 취소 성공 후 DB 반영 중 실패 시 불일치 가능(트랜잭션 없음) → 결제-주문 무결성 체크(P4-3) 전제
+
+---
+
 ## 2026-07-09
+
+### [KEND] 문서 운영 체계 3개 프로젝트 정렬
+
+- **CLAUDE.md 신규**(kend/native/seller, 자동 로드): overview=단일 대시보드, changelog=각 패키지 history, **`/changelog`로만 갱신·선제 작성 금지**, 완료는 테스트 후 기록, 타 패키지는 changelog로 참조
+- `readme-structure-guide.md` **§8 유지규칙 정정** — "작업 시작/완료마다 갱신" → `/changelog` 호출 시 · 작업 단위 완료 시점
+- **`scripts/sync-changelogs.sh` 추가** — changelog 3종을 3개 repo에 원커맨드 동기화 (canonical: 각 이름의 프로젝트가 원본)
+
+### [KEND] 계획 문서 갱신
+
+- **마일스톤 보드 현실화**: 법인 완료·결제 E2E 검증·실키 신청 반영, 현재상태 블록은 overview 포인터로 축소(중복 제거), 스케줄 슬립 경고 추가
+- **NICE 본인확인(EXT-6) → Holding**: 본인확인 불필요 방향(휴대폰 인증도 이연). 카드 결제 본인인증은 Toss/카드사가 처리하고, 유아용품이라 성인인증 대상도 아님
 
 ### [KEND] 결제 루프 E2E 검증 완료 (테스트 키)
 
