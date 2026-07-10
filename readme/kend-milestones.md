@@ -157,6 +157,12 @@
 
 ### Phase 2 필수 — 주문/배송/재고 (2026-06-01 ~ 2026-07-01)
 
+> 🚨 **상태 미검증 경고 (2026-07-10)**
+> 아래 P2-1~P2-6의 상태(🟡 Todo)와 Due는 **2026-04 계획 시점 그대로**이며 이후 갱신되지 않았다.
+> 실제로는 kend-seller에 **판매자 정보관리·로고·해시태그·배너·상품 관련 기능이 이미 구현**돼 있다 ([changelog-seller.md](changelog-seller.md) 참조).
+> **Phase 2 착수 전, kend-seller 코드로 실제 구현 상태를 확인하고 이 섹션을 먼저 정정할 것.**
+> (Phase 1에서도 "미착수"로 적혀 있던 P1-3/4/5가 실제로는 대부분 구현돼 있었다 → 2026-06-18 코드 실측으로 정정한 전례)
+
 > ⚠️ P2-1이 선행되어야 이후 테스트 가능.
 > 📌 **DB 레이어는 이미 존재**: deliveries · delivery_items(부분취소/교환 단위) · courier/tracking_number · 배송비 타입 enum 등이 [orders/schema.ts](../app/features/orders/schema.ts)에 정의됨. P2-2~P2-6은 주로 **Seller/유저 화면(UI) 작업** (kend-seller 포함).
 
