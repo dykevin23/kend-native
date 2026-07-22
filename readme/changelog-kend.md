@@ -7,7 +7,33 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-07-22
+
+### [KEND] 스토어 목록에서 상품 없는 판매자 제외
+
+- `getStoresWithProducts`(`stores/queries.ts`)가 `admin_sellers`를 조건 없이 조회해, 판매 가능한 상품이 하나도 없는 판매자도 No-Image 카드로 노출되던 문제 수정
+- 대표 이미지(`productImages`)가 빈 판매자는 매핑 후 `.filter()`로 결과에서 제외
+- 타입체크만 통과 확인, **브라우저 동작 확인은 아직**(테스트 대기)
+
+---
+
 ## 2026-07-10
+
+### [KEND] 공유 문서 운영 체계 확장 (milestones·roadmap·core sync)
+
+- `scripts/sync-docs.sh` 신설(`sync-changelogs.sh` 대체): sync 대상을 changelog 3종에서 **milestones·roadmap·core 공통문서 8종까지 확장**. milestones/roadmap/core는 kend가 canonical, changelog는 각 프로젝트가 canonical
+- CLAUDE.md에 "공유 문서는 kend에서만 수정, 다른 repo에서 고치면 sync 시 덮어써짐" 규칙 명시
+- 배경: kend-milestones가 kend에만 있고 roadmap이 native/seller에서 stale해서, 다른 프로젝트 세션에서 전체 진행상황을 파악할 수 없던 문제 해결
+
+### [KEND] 마일스톤 보드 Phase 2 상태 미검증 경고 추가
+
+- P2-1~P2-6 상태·Due가 2026-04 계획 시점 그대로 갱신 안 된 상태임을 명시, 착수 전 kend-seller 코드 실측 후 정정하도록 경고 추가
+- Phase 1에서도 "미착수" 표기가 실제로는 대부분 구현돼 있었던 전례 기록
+
+### [KEND] /prep 명령어 개편
+
+- `overview.md`·`kend-milestones.md`·`kend-roadmap-to-launch.md` 등 진행상황 파악에 필수인 문서가 누락돼 있던 문제 수정
+- "읽고 요약만, 작업은 시작하지 않음" 명시(작업 지시는 별도로 받음). 문서 상태가 실제 코드와 다를 수 있으니 착수 전 실측하라는 경고 추가
 
 ### [KEND] 주문 취소 + 전액 환불 (P1-5)
 
