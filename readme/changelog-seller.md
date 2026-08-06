@@ -8,6 +8,35 @@ KEND-SELLER 판매자 관리자 웹의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-08-04
+
+### [KEND-SELLER] 재고 배지(품절/재고부족) 추가 + 취소 주문 노출 버그 수정 (P2-4 착수)
+
+- **품절/재고부족 배지** (`product-list-page.tsx`): 재고수량 컬럼에 `total_stock === 0`이면 품절, `0 < total_stock ≤ LOW_STOCK_THRESHOLD(10)`이면 재고부족 배지 표시. `status` 필드가 아닌 `total_stock` 값을 직접 계산해 판단 — 재고 0 도달 시 자동으로 상태를 갱신해주는 주체가 아직 없어, 별도 동기화 없이 항상 정확한 값을 보여주기 위함
+- **버그 수정 — 취소된 주문이 판매자 목록/상세에서 사라짐**: kend에 새로 배포된 주문취소 트리거(`handle_order_cancelled`)가 `orders.status` 취소 시 `order_groups.status`도 함께 `cancelled`로 바꾸면서, "결제완료(paid/partially_refunded)만 노출"하던 화이트리스트 필터(`orders/queries.ts`)에 걸려 조회 자체가 안 되던 문제. "결제 미완료(payment_in_progress/payment_pending/failed)만 제외"하는 블랙리스트 방식으로 전환해 해결
+  - kend 트리거 정의를 교차 확인한 결과, 다중 판매자 order_group(그룹 내 판매자 2인 이상 섞인 케이스, 실데이터 기준 11개 중 2개 존재)에서도 "그룹 내 모든 orders가 cancelled일 때만" 그룹 상태를 바꾸도록 이미 안전하게 처리돼 있음을 확인 — 별도 수정 불필요
+- **dev 서버 포트 5174로 고정**: kend와 동일한 Vite 기본 포트(5173) 사용으로 동시 실행 시 충돌하던 문제 해결
+- **재고관리 화면 스코프 확정**: `navigation.tsx`에 "Stocks Keeping"(`/products/stocks-keeping`) 메뉴가 기획 초기부터 있었으나 라우트·페이지 구현이 없던 죽은 링크였음을 확인. SKU별 재고 조회+수정 화면으로 정식 착수 예정(다음 작업). 차감/복구 트랜잭션(주문생성·취소 시)은 kend이 DB 트랜잭션으로 담당하기로 R&R 합의, kend-seller는 배지·조회/수정 화면만 담당
+- (참고) 조사 중 상품 등록 후 **수정 기능 자체가 없음**(재고뿐 아니라 이름·가격 등 전체)을 확인 — 별도 이슈로 기록만 해둠
+
+---
+
+## 2026-07-24
+
+### [KEND-SELLER] 배송 처리(스마트택배 연동) 추가 (P2-3)
+
+- **배송 처리 UI** (`order-detail-page.tsx`): `배송준비중` 상태에서 배송사 선택 + 송장번호 입력 폼 노출. 제출 시 `markOrderShipped`(`orders/mutations.ts`)가 `deliveries`(courier/tracking_number/shipped_at)와 `orders.status`를 `shipped`로 갱신. 이 시점엔 스마트택배 API를 호출하지 않고 DB만 기록 — 이후 스케줄러가 처리
+- **아키텍처 결정 — 실시간 조회 대신 스케줄러 폴링**: 스마트택배는 조회 건수가 아니라 **동일 운송장번호 최초 조회 기준**으로 과금(재조회는 하루 10~20건까지 무료)되는 구조라, 사용자가 화면에 들어올 때마다 온디맨드로 부르는 대신 백그라운드 스케줄러가 주기적으로 갱신하고 kend/kend-seller는 캐시된 DB 값만 읽는 방식으로 설계
+- **스케줄러는 Vercel Cron이 아닌 Supabase(pg_cron)로 구현**: Vercel Hobby 플랜은 크론 실행이 하루 1회로 제한돼 있어, 플랜에 무관하게 원하는 주기로 스케줄링 가능한 Supabase `pg_cron`+`pg_net` 조합을 택함
+- **`supabase/functions/sync-tracking`**: `deliveries.status`가 `shipped`/`in_transit`인 건을 스마트택배 API(`trackingInfo`)로 조회 → `complete: true`면 `delivered`로, 아니면 `in_transit`으로 갱신하고 `tracking_synced_at` 기록. 배송완료된 건은 다음 폴링 대상에서 자연히 제외되어 별도 중단 로직 불필요
+- **`courier_company` enum ↔ 스마트택배 `t_code` 매핑 확정** (`orders/constrants.ts`): 공식 `companylist` API 응답으로 10개사 코드 실측 확인 후 반영 (추측 코드 사용 시 오조회 위험이 있어 실제 응답으로 검증)
+- **`deliveries.tracking_synced_at` 컬럼**: 스키마 소유가 kend 레포라 kend 쪽에서 마이그레이션 진행, 이 레포는 `db:typegen`으로 반영만
+- **pg_cron 스케줄은 하루 1회**: 배포 초기엔 실사용 트래픽이 없어 촘촘한 폴링이 불필요 — 개발 중 확인은 크론 주기를 바꾸는 대신 Edge Function을 수동 invoke하는 방식으로 진행
+- **EXT-4(스마트택배 API)는 무료 등급으로 신청**: 무료 키는 1개월 유효, 만료 전 재신청하면 계속 무료 사용 가능(재신청마다 키 값 갱신) — 실제 운영 배포 시점에 유료로 전환 예정
+- 실제 CJ대한통운 배송건 2건으로 화면 입력 → DB 저장(`shipped`) → 스케줄러 수동 실행 → 스마트택배 응답 반영(`delivered`, 동기화 시각 기록)까지 종단 테스트 완료
+
+---
+
 ## 2026-07-22
 
 ### [KEND-SELLER] 판매자 주문 관리 화면 추가 (P2-2)

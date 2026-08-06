@@ -7,7 +7,41 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-08-04
+
+### [KEND] 재고 hold 유지시간 30분 → 15분 단축
+
+- `expire_pending_orders()`(`app/sql/functions/expire_pending_orders.sql`)의 `payment_in_progress` 정리 임계치를 30분에서 15분으로 단축, cron 주기도 10분 → 5분으로 맞춤
+- 업계 표준(주문 생성 시 재고 hold 후 10~15분 내 결제 미완료 시 자동 정리) 참고해 결정
+
+---
+
+## 2026-07-27
+
+### [KEND] 재고 차감/복원 연동 (P2-4)
+
+- **`decrement_stock`**(`app/sql/functions/decrement_stock.sql`): 주문 생성 시(`orders/mutations.ts` `createOrder`) SKU 재고를 원자적으로 차감. 재고 부족 시 예외를 던져 주문 생성을 막음 (B안: 결제 시도 전 재고 hold)
+- **`handle_order_cancelled` 트리거**(`app/sql/triggers/on_order_cancelled.sql`): `orders.status`가 `cancelled`로 전이되면 해당 주문의 SKU 재고를 복원하고, 같은 `order_group` 내 전 주문이 취소됐으면 `order_groups.status`도 `cancelled`로 승격
+  - 최초엔 `order_groups.status` 기준으로 만들었으나, kend-seller의 판매자 취소(`updateOrderStatus`)가 `orders.status`만 바꾸고 `order_groups.status`는 안 건드려 트리거가 걸리지 않는 버그를 실사용 중 발견 → `orders.status` 기준으로 재설계. 다중 판매자 주문에서 한쪽만 취소해도 나머지가 안전한지까지 실사례로 검증
+- **`expire_pending_orders`**(`app/sql/functions/expire_pending_orders.sql`) 함수 + pg_cron: `payment_in_progress` 상태로 일정시간 경과한 주문을 `failed` 처리, 하위 `orders.status`도 `cancelled`로 맞춰 위 트리거가 연쇄로 재고를 복원하도록 연결
+- **`order-group-card.tsx`**: "주문취소" 버튼이 이미 취소된 주문에도 계속 노출되던 버그 수정 (`canCancel` 판정에 `cancelled` 상태 추가)
+- 실사용 테스트 중 발견한 버그 3건(재고 미복원, 취소버튼 잔존, "취소/환불" 탭 미표시)은 전부 "판매자 취소가 `orders`만 건드리고 `order_groups`는 안 건드린다"는 하나의 근본원인에서 파생된 것으로 확인, 트리거 재설계로 일괄 해결
+
+### [KEND] deliveries 테이블에 tracking_synced_at 컬럼 추가
+
+- kend-seller의 스마트택배 연동(P2-3) 배송상태 폴링이 갱신 시각을 기록할 수 있도록 컬럼 추가. 스키마 소유가 kend 레포라 마이그레이션은 kend에서 진행, kend-seller는 `db:typegen`으로 반영
+
+---
+
 ## 2026-07-22
+
+### [KEND] 판매자 계정 kend 로그인 차단 + 주문취소 팝업 개선
+
+- **`root.tsx`**: 전역 loader에서 로그인 후 `profiles.role`을 조회, `seller`면 즉시 `signOut()` + `/auth/login`으로 리다이렉트. 일반 로그인 실패와 동일한 문구·에러코드(`invalid_credentials`)를 사용해 판매자 계정 존재 여부가 드러나지 않게 처리
+  - 계기: 결제 테스트 데이터 점검 중 판매자(NBA KIDS) 계정이 kend에 로그인해 실제로 구매까지 할 수 있었던 것을 발견 — `profiles.role`이 스키마에만 정의돼 있고 어디서도 체크되지 않던 상태였음
+- **`login-page.tsx`**: 위 리다이렉트의 에러 메시지 표시 로직 추가. 기존에 죽어있던 `naver_*` 에러 쿼리 파라미터 처리도 함께 살림
+- **`order-group-card.tsx`**: 주문취소 확인 팝업에 확인 버튼만 있고 되돌릴 방법이 없던 문제 수정 — `secondaryButton`(취소) 추가 (다른 화면의 기존 confirm 패턴과 동일)
+- (참고) 점검 과정에서 발견된 테스트용 주문/결제 데이터(order_groups 5건 등, 전부 테스트 키)는 DB에서 삭제 완료
 
 ### [KEND] 스토어 목록에서 상품 없는 판매자 제외
 
