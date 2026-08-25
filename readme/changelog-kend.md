@@ -7,6 +7,93 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-08-25
+
+### [KEND] 문의하기 화면 UX 정리 — 하단 고정 버튼
+
+- 문의상세: 하단 고정 "목록으로" 버튼 추가 — 헤더의 브라우저 히스토리 back과 별개로, 진입 경로와 무관하게 항상 `/myPage/inquiries`로 정확히 돌아가도록
+- 문의내역 목록: 상단에 있던 "문의하기" 버튼을 하단 고정으로 이동(구매확정/문의등록 폼과 같은 `Content` `footer` 슬롯 패턴)
+- 문의상세의 답변 표시(seller가 `status='answered'`+`answer` 채우면 상세화면에 노출)는 이미 8/21에 구현돼 있었음을 재확인 — kend 쪽 추가 작업 없음
+
+## 2026-08-21
+
+### [KEND] 반품(P2.5-3) 실사용 E2E 테스트 완료 + 주문/배송 화면 UI·탭 재정의
+
+- **E2E 검증**: 8/14 구현한 반품 신청→승인→환불 전 흐름을 실제 데이터로 검증 — 주문생성→배송완료→반품신청→1차승인→회수확인→최종승인→환불크론까지 정상 플로우 14단계, 예외 케이스(기한초과, 1차거절→재진행, 회수확인 없이 최종승인 시도 차단, 구매확정 후 반품 차단, 타인 주문 반품 차단, 크론 인증 가드, 발송전 취소, 한 주문 상품 2개 중 1개만 반품) 8종 전부 통과
+- **테스트 중 발견한 UI/로직 버그 6건 수정**:
+  - 반품신청 화면 — `Dialog`(`fixed inset-0`)라 모바일에서 항상 풀스크린으로 뜨던 것을 `BottomSheet`로 전환(상품 옵션선택 시트와 동일 패턴)
+  - 반품/교환 진행중(`return_requested`/`exchange_requested`)인 상품이 있으면 주문상세의 구매확정 버튼을 숨기도록 수정 — 기존엔 `order.status`만 보고 `delivery_item` 상태를 안 봐서 반품 진행 중에도 구매확정이 가능했음
+  - 회수확인(`return_received_at`) 이후에도 "반송 택배를 보내주세요"(1차승인 단계 문구)가 계속 뜨던 버그 — `getOrderGroupDetail` 쿼리가 이 컬럼 자체를 select 안 하고 있었음
+  - 주문내역 상품 클릭 시 상품페이지로 안 가던 버그 — `order_items.product_id`(UUID)로 링크를 만들어 404 나던 것을, 앱 전체 컨벤션대로 `product_code` 기반으로 수정
+  - 반품/교환 상태 라벨을 주문 상태 배지와 같은 스타일로 통일(`getItemStatusLabel` 신설, `app/features/orders/utils.ts`) — 상품(delivery_item) 단위로 판단해서 한 주문 안에서도 상품별로 다른 배지가 뜨도록 개선
+  - 반품 진행중인 상품이 취소/환불 탭에 안 보이던 문제 — 아래 탭 재정의로 해결
+- **주문/배송 탭 재정의**: 상품(delivery_item) 단위로 탭을 다시 나눔 — **전체 / 주문접수 / 배송중 / 배송완료 / 취소·환불**. 기존 "결제대기" 탭은 없애고 "주문접수"에 흡수(결제완료~발송 전 구간 전체를 포괄, 결제대기 주문도 `orders.status`가 이미 `pending`이라 별도 처리 없이 자연스럽게 포함됨). "배송중"은 실제 발송(`shipped`/`in_transit`) 이후로 좁힘. 발송전 취소는 부분취소가 불가능해 탭으로 뺄 실익이 없다고 판단해 전체 탭에서만 노출. `deliveries.status='returning'`(RTS·장기미수령, kend-seller 미도입)도 취소/환불 탭에 미리 반영해둠 — 나중에 kend-seller가 구현하면 kend 쪽 추가 작업 없이 바로 노출됨
+- **`getUserOrderGroups` 쿼리 재작성**: 필터별로 다른 shape 반환(전체/결제대기=`order_group` 중첩, 나머지=상품 단위 카드로 평탄화) — 같은 판매자 주문 안에서도 상품마다 배송/반품 상태가 다를 수 있어, `order_group`·`orders` 단위로 탭을 나누면 다른 상품 상태가 섞여 보이는 문제였음. 주문취소 트리거(`handle_order_cancelled`)가 `deliveries`/`delivery_items` 상태를 안 건드리는 걸 재확인해, 취소된 주문이 배송중 탭에 남는 회귀를 막는 가드를 추가
+- **후속 발견(정책/법률)**: 반품 사유가 구매자 자가신고이고 증빙 요구가 없음(판매자 검수 단계가 유일한 사후 검증, "전체승인/전체거절"만 가능) + §7.2에서 결정한 "사유별 반품배송비 부담주체" 정책이 코드에 전혀 구현 안 됨(상품가만 환불) + 판매자귀책 사유 반품기간(30일 고정)이 전자상거래법 법정기준(안 날로부터 30일 또는 수령일로부터 3개월 중 나중, 으로 알려짐)보다 짧을 가능성 — `order-cancel-refund-exchange-flow.md` §5-4에 기록, **Toss 실키 전환 전 법률 검토 권장**
+- **다음 작업**: 구매확정을 `orders` 단위가 아니라 `delivery_item` 단위로 개별화하는 작업이 남음 — 지금은 한 주문에 정상 상품과 반품 상품이 섞이면 정상 상품까지 구매확정이 막히는 걸 이번 테스트로 확인함(스키마 변경 필요, 별도 라운드로 진행 예정)
+
+### [KEND] 구매확정을 상품(delivery_item) 단위로 개별화 (P2.5-3 후속) — 완료
+
+- 위에서 발견한 문제 해결: `orders.purchase_confirmed_at`(주문 단위) 컬럼을 없애고 `delivery_items.purchase_confirmed_at`(상품 단위)로 완전히 이전 — pre-launch라 하위호환 없이 교체. 마이그레이션 적용 + `database.types.ts` 갱신까지 실제 공유 Supabase DB에 반영 완료
+- `confirmPurchase` 뮤테이션을 `orderId` → `deliveryItemId` 기준으로 재작성(본인주문/배송완료/`status==='normal'`/미확정 가드), `requestReturn`의 구매확정 체크도 상위 조인 대신 delivery_item 자기 컬럼으로 단순화
+- `auto_confirm_purchase` cron(배송완료 7일 후 자동확정)도 `delivery_items` 기준으로 재작성하고 **실제 DB에 함수 재등록까지 완료** — 스키마 변경만 하고 이 함수를 안 고쳤으면 존재하지 않는 컬럼을 참조해서 크론이 깨질 뻔했음
+- `order-detail-page.tsx`: 구매확정 버튼/완료문구를 상품 단위로 이동해 반품신청 버튼과 나란히 노출, `OrderTimeline`에서 주문단위였던 "구매확정" 행 제거
+- kend-seller는 이 컬럼을 참조하는 코드가 없어 기능 영향 없음(검증 완료) — 다만 seller의 `database.types.ts`가 옛 스키마(orders 쪽)를 보고 있어 stale함, `db:typegen` 갱신 필요하다고 `kend-milestones.md` P3.5-2에 기록
+- 반품중 상품 + 정상 상품이 섞인 주문에서 정상 상품만 구매확정되고 반품중 상품엔 버튼이 안 뜨는지 실사용 테스트로 확인 완료
+
+### [KEND] 문의하기(P2.5-4) 코어 — 구매자 접수 UI 완료
+
+- `inquiries` 테이블 신규 — 반품/교환과 달리 상태전이 액션이 아니라 카테고리별(배송/상품/결제/기타) 단일 질문+단일 답변 구조의 순수 Q&A(스레드형 대화 아님). 마이그레이션 적용 + `database.types.ts` 갱신 완료
+- **연결 대상을 `order_group_id`가 아니라 `order_item_id`로 설계**: 처음엔 order_group으로 만들었다가, 한 결제(order_group)가 여러 판매자 주문을 포함할 수 있어 "이 문의가 어느 판매자 몫인지" 특정이 안 된다는 문제를 실사용 테스트 중 발견 — order_item은 `orders.seller_id`로 항상 유일한 판매자가 정해져서 이걸로 교체. 이미 적용된 테이블이라 컬럼 추가 → 이전 컬럼 삭제 2단계로 나눠 안전하게 마이그레이션(drizzle-kit의 rename-감지 인터랙티브 프롬프트가 자동화 스크립트로 응답이 안 먹혀서 이렇게 우회)
+- **작성 폼 계층 선택**: 카테고리 선택 → "관련 주문" 선택(선택 안 함 가능) → 그 주문에 속한 상품만 나열하는 "상품 선택"(썸네일+판매자명+가격) — 주문을 고르면 상품 선택이 필수가 되도록 처리
+- **목록/상세 화면**: 카테고리·상태(답변대기/답변완료) 배지, 상세 화면엔 연결 상품을 주문상세 화면과 비슷한 정보 밀도(판매자/썸네일/옵션/가격)로 미리보기 — 전체 영역이 주문상세로 링크되고 상품 이미지 자체엔 별도 링크를 안 걸어서(`OrderItemCard` 재사용 대신 직접 마크업) 상품상세로는 안 새게 함
+- 문의 등록 완료 후 뒤로가기 시 작성 폼이 아니라 목록으로 가도록, action을 서버 redirect 대신 `fetcher` 제출 + `navigate(..., { replace: true })`로 처리
+- 마이페이지 "고객센터" 메뉴에 "문의 내역" 진입점 추가
+- **kend-seller 처리화면(답변 작성)은 이번 스코프 밖** — 이번에 만든 문의는 전부 `status='pending'`으로 남아있음. seller 쪽엔 `order_item_id → order_items.order_id → orders.seller_id` 체인으로 담당 판매자를 특정할 수 있다고 전달
+- 테스트 중 소유권 체크(`getInquiryDetail`이 `user_id` 불일치 시 조회 실패) 자체는 정상 작동함을 확인했으나, 에러 화면이 일반 크래시 페이지(스택트레이스 노출)로 뜨는 게 kend 전역 기존 패턴(`getOrderGroupDetail`도 동일)임을 재확인 — `kend-error-handling-roadmap.md` §1-4에 구체 사례로 기록
+
+## 2026-08-14
+
+### [KEND] 반품 신청 + 환불 처리 도입 (P2.5-3, kend 부분) — 구현됨, 테스트 대기
+
+- **반품 신청**: 배송완료~구매확정 전, `delivery_item` 단위로 반품 신청 가능(`requestReturn`). 사유별 신청기한(단순변심 7일/그 외 30일) 검증, 신청 시 `delivery_items.status: normal → return_requested` + `reason` 세팅. 주문상세 화면에 반품 신청 다이얼로그(`return-request-dialog.tsx`) 추가
+- **반품 승인 플로우 재설계**: 최초엔 "승인=즉시 최종확정"으로 단순화했으나, 실제로는 1차승인(반송 택배 진행 동의) → 회수확인 → 검수 후 최종승인/거절의 다단계 프로세스가 필요함을 kend-seller 작업 중 확인. `delivery_items.status` enum은 그대로 두고 `return_approved_at`/`return_received_at`/`reject_reason` 컬럼을 추가해 중간 단계를 표현 — `status`가 `'returned'`로 바뀌는 시점(검수 후 최종승인)에만 환불이 트리거되도록 설계. 거절은 상태를 되돌리지 않고 `reject_reason`만 채워 판매자가 재고려 가능하게 함
+- **환불 처리 크론**: `processApprovedReturns`(`orders/mutations.server.ts`) — `status='returned' AND refunded_at IS NULL`인 건을 찾아 Toss 부분환불 + 재고복원(`increment_stock` RPC 신설) + `order_groups` 상태 집계(`partially_refunded`/`refunded`)까지 처리. `/api/cron/process-returns` 라우트로 노출(`CRON_SECRET` 헤더 인증). kend-seller는 TOSS_SECRET_KEY가 없어 상태 컬럼만 갱신하고, 실제 환불은 이 크론이 폴링 방식으로 처리 — 판매자 취소가 결제취소를 안 부르던 기존 버그(2026-07-27 항목 참고)와 같은 유형의 실수를 피하기 위한 설계
+- **pg_cron 등록 SQL은 준비만 해둠**: `schedule_process_returns.sql`은 프로덕션 도메인이 아직 없어 플레이스홀더 상태로 미적용 — 도메인 확정 후 실행 필요
+- **상태 이력 테이블 신설**: `entity_status_history`(entity_type 기반 범용 구조 — orders/order_groups/deliveries/payments로도 같은 틀로 확장 가능하게 설계, 이번엔 delivery_items에만 연결) + `delivery_items` 대상 DB 트리거(`on_delivery_item_status_changed.sql`) — status/reason/승인/거절/환불 관련 컬럼이 바뀔 때마다 자동으로 스냅샷 기록. 앱 코드가 로깅을 기억할 필요 없이 트리거가 캡처
+- **kend-seller에 반품 승인 스펙 전달**: 1차승인/1차거절/회수확인/최종승인·거절 4단계가 어떤 컬럼을 어떻게 바꾸는지, `status='returned'`가 정확히 언제 되는지 문서화해 전달
+- **테스트용 주문 데이터 정리**: `order_groups`(+cascade) 11건, `carts` 2건 삭제 (전부 테스트 데이터, 재고 수치는 손대지 않음 — 어차피 더미)
+- **P2.5-4(문의하기) 착수했다가 홀딩**: `inquiries` 스키마 초안까지 갔다가, 반품 승인 설계 이슈 확인 우선순위로 밀려 롤백. 재개 예정
+- ⚠️ **테스트 대기**: 코드/트리거/스키마는 적용됐으나 실제 반품 신청→승인→환불 E2E는 아직 미검증 (kend-seller 승인화면이 별도 저장소에서 진행 중이라 여기서 단독 테스트 불가)
+
+---
+
+## 2026-08-07
+
+### [KEND] Phase 2.5 진행 — 구매확정 + 주문상세 타임라인 + 플랫폼 조건부 무료배송
+
+- **주문상세 타임라인 화면 신설** (`order-detail-page.tsx`, `/orders/:orderGroupId`): 죽어있던 `getOrderGroupDetail` 쿼리(쓰는 곳이 없던 코드)를 살려서 제작. 주문일시/결제일시/판매자확인일시/발송일시/배송완료일시 + 배송사·송장번호 표시. 주문목록의 "배송·주문 관리"/"배송 조회" 버튼(기존엔 동작 없는 껍데기)을 이 화면으로 연결
+- **`orders.purchase_confirmed_at` 컬럼 추가** + **`confirmPurchase` 뮤테이션**: 배송완료(`delivered`)된 주문만 구매확정 가능, 이미 확정된 건 재확정 차단
+- **`auto_confirm_purchase` cron**: 배송완료 후 **7일** 경과 시 자동 구매확정(매일 새벽 3시). 수동 확정 안 해도 자동으로 정리됨
+- **플랫폼 조건부 무료배송 연동** (`createOrder`): kend-seller가 만든 `platform_settings.free_shipping_threshold`를 장바구니 총액과 비교해, 판매자 자체 조건 미달이어도 플랫폼 조건 충족 시 배송비 면제. 이때 `order_items.shipping_fee_bearer`를 `PLATFORM`으로 기록(판매자 자체 조건으로 이미 무료인 경우는 `SELLER` 유지) — Phase 3.5 정산 계산의 입력값이 됨. 설정 row가 없으면 임계값 0(off)으로 안전하게 처리
+- **로드맵 반영**: P2.5-1(SLA)·P2.5-2(구매확정)·P2.5-5(플랫폼 배송비) 완료 처리
+- 배송조회 상세 이력(택배사 단계별 이력 표시)은 스마트택배 API가 데이터 자체는 제공하나, kend-seller `sync-tracking`이 지금 이 필드를 안 읽고 있어 별도 작업으로 백로그 등록(Phase 미배정)
+
+---
+
+## 2026-08-06
+
+### [KEND] Phase 2.5 착수 — SLA 자동취소 cron + 스키마 확장
+
+- **스키마 확장**(`app/features/orders/schema.ts`): `delivery_items.reason`(반품/교환 사유: 단순변심/하자/오배송/파손/분실), `order_items.shipping_fee_bearer`(배송비 부담주체 SELLER/PLATFORM, Phase 3.5 정산 입력값), `deliveries.status`에 `returning`(반송중) 추가, `orders.confirmed_at`(판매자 주문확인 시각) 추가 — 전부 추가(additive) 변경
+- **`expire_unconfirmed_orders`**: 판매자가 3일 안에 주문확인(`pending`→`confirmed`)을 안 한 주문을 자동취소하는 cron(매시)
+- **`expire_unshipped_orders`**: 주문확인 후 3일 안에 발송(`shipped`)까지 못 간 주문을 자동취소하는 cron(매시). `confirmed_at`을 기산점으로 사용 — kend-seller의 `updateOrderStatus`가 `confirmed` 전이 시 이 값을 세팅
+  - 둘 다 기존 `handle_order_cancelled` 트리거를 그대로 타서 재고 복원/그룹 승격이 자동으로 이어짐
+- **설계 결정 2건** (상세 근거는 [order-lifecycle-master-plan.md](todo/order-lifecycle-master-plan.md) §5): `confirmed_at` 자동 세팅은 DB 트리거 대신 kend-seller 앱 코드에서 직접 처리(상태 전이 경로가 한 곳뿐이라 트리거는 과함), 반품기간(`return_window_days`)은 상품별 설정 필드 대신 코드 상수(단순변심 7일/그 외 사유 30일)로 하드코딩(실제 니즈 없이 미리 만드는 과설계 방지)
+- **로드맵 재구성**: Phase 2 종료, Phase 2.5(주문 라이프사이클 완결)·Phase 3(판매자 관리보완)·Phase 3.5(정산, 구 Phase 3) 신설. 구 P2-9(반품/환불, 선택→필수 승격)·P3-1(구매확정)을 Phase 2.5로 흡수, 구 P2-7/8/10은 주제별로 Phase 2.5/3에 재배치. 상세: [order-lifecycle-master-plan.md](todo/order-lifecycle-master-plan.md), [order-cancel-refund-exchange-flow.md](todo/order-cancel-refund-exchange-flow.md)
+
+---
+
 ## 2026-08-04
 
 ### [KEND] 재고 hold 유지시간 30분 → 15분 단축

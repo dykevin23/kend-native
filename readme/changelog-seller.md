@@ -8,6 +8,97 @@ KEND-SELLER 판매자 관리자 웹의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-08-25
+
+### [KEND-SELLER] 문의하기 처리 화면 (Phase 2.5-4)
+
+- kend가 만든 `inquiries` 테이블(카테고리별 단일질문+단일답변 Q&A) + 구매자 접수 UI 위에, 답변 처리 화면 2종 구현
+- **판매자용** (`/orders/inquiries`, `/orders/inquiries/:id`): `order_item_id → order_items.order_id → orders.seller_id` 체인으로 본인 상품에 달린 문의만 필터링(inner join이라 `order_item_id`가 null인 일반 문의는 자연히 목록에서 제외됨). 카테고리·상태(답변대기/답변완료) 필터, 답변 등록 시 `status='answered'`+`answer`+`answered_at` 갱신
+- **admin용** (`/system/inquiries`, `admin-layout` 가드): `order_item_id`가 null인 일반 문의 전용 — 판매자 화면과 상호 배타적으로 나뉨. milestones에 명시된 "seller/admin 권한 둘 다" 요구사항 충족
+- **버그 발견 — 공용 `Card` 컴포넌트 테두리 미표시**: `border-1`/`border-1-muted`가 실재하지 않는 Tailwind 클래스라 Card가 테두리 없이 렌더링되고 있었음. 텍스트만 있는 카드(문의 상세 상단 정보 카드 등)에서 경계가 아예 안 보이는 것으로 발견 → `border`/`border-muted`로 수정, 앱 전체 Card 사용처에 영향
+- **UX 수정 사항 3건** (테스트 중 발견): 답변 등록 후 확인 안내 없이 페이지에 머무르던 것 → 성공 시 확인 알림 후 목록 이동(fetcher submitting→idle 전환 감지로 구현, 초기엔 `fetcher.data` 참조 변경만 감지해 안 뜨는 버그 있었음). 목록 테이블에 `Card` 래핑 — 기존 반품목록(`return-list-page`) 패턴을 그대로 따라갔다가, 실제로는 주문목록 등 다수 화면이 bare `<Table>`을 쓰는 게 우세 패턴임을 확인해 제거. 상세페이지 정보행 줄간격이 붙어있던 것 `py-2.5` 추가로 개선
+- 실사용 테스트 완료(사용자 확인) — 판매자 답변 등록 → kend 구매자 화면에서 답변 노출까지 확인
+- **kend-seller 쪽 Phase 2.5 담당 항목 전부 완료** — kend도 문의하기 접수 UI + 구매확정 개별화 완료로, Phase 2.5는 사실상 양쪽 다 종료
+
+## 2026-08-24
+
+### [KEND-SELLER] RTS·장기미수령 기간기반 플래깅 (Phase 2.5-6)
+
+- **SweetTracker API 조사 결과 반송(RTS) 전용 상태 코드 없음 확인**: 공식 API 문서(v1.6)를 직접 확인한 결과 `level`은 1~6 순방향 진행단계(배송준비→집화→배송중→지점도착→배송출발→완료)만 표현하고, 반송/수취인부재/미배달 같은 예외 상태는 정의돼 있지 않음 — `trackingDetails[].kind` 자유 텍스트에 담길 수는 있으나 정확한 문자열이 공식 문서에 없어 텍스트 매칭은 오탐 위험(8/21 송장번호 검증 때의 SweetTracker 에러코드 104/106 케이스와 동일한 이유로 기각)
+- **순수 기간기반 플래깅으로 결정**: `deliveries.status`를 자동으로 `returning`으로 전환하지 않고, `in_transit` 상태가 `shipped_at` 기준 7일을 넘기면 판매자에게 수동확인만 유도. 오탐 시 되돌리기 어려운 상태 전환 리스크를 피함
+- **주문 상세 화면**: 기존 송장번호 사후알림 배너(24시간 미조회)와 동일한 패턴으로 "장기미수령·수취거절 반송 가능성" 경고 배너 추가
+- **주문 목록 화면**: 상세를 열어보지 않아도 발견 가능하도록 상태 옆에 "정체" 배지 추가 — `getSellerOrders` 쿼리에 `deliveries(status, shipped_at)` 조인 추가 필요했음 (기존엔 목록에서 delivery 정보를 아예 안 봤음)
+- **`sync-tracking` Edge Function**: 정체 건을 결과 로그에 `in_transit:stalled_7d+`로 표시(운영 가시성용, DB 상태는 안 건드림), `--use-api` 플래그로 Docker 없이 배포 완료
+- 임계값(7일)·처리방식(상태유지+알림만)은 사용자 확인 거쳐 결정
+- 실사용 테스트: 더미 주문의 `deliveries.status`/`shipped_at`을 DB에서 직접 조작해 상세 배너·목록 배지 노출 확인 완료(사용자 확인), 테스트 데이터는 원복함. sync-tracking 로그 마킹 자체는 실사용 조회로 검증하지 않음(로그 표시용 부가 기능이라 낮은 우선순위로 판단)
+- 이 작업으로 kend-seller 쪽 Phase 2.5 담당 항목 완료 (kend 쪽은 구매확정 상품단위 개별화 완료, 문의하기(P2.5-4)는 kend 접수 UI 착수 전이라 대기)
+
+### [KEND-SELLER] database.types.ts 갱신 — delivery_items.purchase_confirmed_at 반영
+
+- kend가 구매확정 컬럼을 `orders.purchase_confirmed_at`(주문 단위)에서 `delivery_items.purchase_confirmed_at`(상품 단위)로 이전한 스키마 변경을 `db:typegen`으로 반영. kend-seller 앱 코드는 이 컬럼을 참조하는 곳이 없어 영향 없음(grep 확인)
+
+---
+
+## 2026-08-21
+
+### [KEND-SELLER] 반품 처리 화면 UX 개선 + 송장번호 검증 (P2.5-3 후속)
+
+- 사용자 리뷰로 발견된 반품 관리 화면(`/orders/returns`) 이슈 점검 — "1차승인" 명칭과 상세화면 부재는 보류/불필요로 결론, 아래 2건만 수정
+- **액션 버튼 UI 분리**: 승인/회수확인/최종승인 등 주 액션 버튼과 "거절" 버튼이 나란히 있어 혼동 위험 — 거절 버튼을 `ghost` variant(톤 낮춘 텍스트 버튼)로 바꾸고 구분선으로 분리해 주 액션과 경쟁하지 않게 함
+- **완료 내역 조회 탭 신설**: 최종승인(`status='returned'`) 건은 기존 목록(`status='return_requested'`만 조회)에서 조회 즉시 사라져 판매자가 다시 볼 방법이 없던 문제 — "승인 대기"/"완료 내역" 탭 추가, 완료 탭에서는 `refunded_at`(kend 전용 컬럼, 읽기만 함)을 기준으로 환불 완료/처리중 상태 노출
+- **송장번호 검증**: 배송 처리 시 형식체크(숫자 8~20자리) 없이 바로 저장되던 문제 발견 — 클라이언트/서버 양쪽에 형식체크 추가. 실시간 스마트택배 API 검증은 기각(SweetTracker 에러코드 104/106이 "미스캔"과 "오입력"을 구분 안 해 정상 케이스까지 오탐 위험) 대신, 발송 24시간 후에도 `tracking_synced_at`이 안 채워지면 경고 배너를 띄우는 사후 알림 방식 채택 — 스키마 변경 없이 기존 `sync-tracking` 크론 데이터만으로 구현
+- typecheck 통과, dev 서버에서 라우팅 SSR 정상 확인(크래시 없음)까지만 확인 — 실제 로그인 클릭 테스트는 사용자가 별도 확인함
+
+### [KEND-SELLER] P2.5-3 반품 4단계 플로우 — kend E2E 테스트 통과로 완료 처리
+
+- kend가 2026-08-21 반품신청→1차승인→회수확인→최종승인→환불크론까지 정상 플로우 14단계 + 예외 케이스 8종(기한초과, 거절→재진행, 회수확인 없이 최종승인 시도 차단 등) 전부 E2E 통과 확인(`changelog-kend.md` 2026-08-21 항목)
+- 테스트 중 발견된 버그 6건은 전부 kend 단독 수정 사항(화면/쿼리, 스키마 변경 없음) — kend-seller 쪽 추가 액션 없었음
+- 이로써 2026-08-14 "구현 완료, 실사용 테스트 대기"였던 항목이 테스트까지 통과해 완료 처리됨
+
+---
+
+## 2026-08-14
+
+### [KEND-SELLER] 반품 신청 처리 화면 (P2.5-3) — 구현 완료, 실사용 테스트 대기
+
+- kend가 반품 신청/환불 로직(구매자 반품 신청, 사유별 신청기한 검증, Toss 부분환불+재고복원 크론)을 완료해 인계, kend-seller는 그 위에서 판매자가 신청을 처리하는 화면만 구현
+- **설계 재협의**: 처음엔 "승인/거절 2액션" 단순 모델로 시작했으나, 검토 중 "거절 후 재승인하면 이전 거절 사유가 사라진다"는 문제를 발견해 홀딩 후 kend와 재협의. 그 결과 kend가 `entity_status_history` 트리거 기반 이력 테이블과 `delivery_items.return_approved_at`/`return_received_at`/`reject_reason` 3개 컬럼을 추가해, 상태를 잃지 않고 승인/거절을 오갈 수 있는 4단계 플로우로 확정
+- **4단계 승인 플로우** (`delivery_items.status`는 `return_requested` 그대로 유지, enum 변경 없음):
+  1. 1차 승인 — `return_approved_at` 기록
+  2. 거절 — `reject_reason`만 채움(status 안 건드림, 단계 무관하게 재사용 가능한 단일 액션)
+  3. 회수 확인 — `return_received_at` 기록
+  4. 최종 승인 — 이 순간에만 `status`를 `'returned'`로 변경, kend의 환불 크론(`status='returned' AND refunded_at IS NULL` 감지)이 여기서 트리거됨
+  - 재승인(액션 1·4 재실행)은 그 시점에 `reject_reason`을 함께 NULL로 비워 "거절 취소하고 재진행"을 겸함
+  - 회수확인→최종승인 순서는 DB 레벨 제약이 없어(CHECK 없음) 앱 코드(`finalizeReturnApproval`)에서 `return_received_at` 존재 여부를 직접 가드
+- **구현**: `getSellerReturnRequests`(목록 조회, `order_items!inner(orders!inner(...))` dot-path 필터로 판매자 소유 반품 신청만 필터), `approveReturnStage1`/`rejectReturn`/`confirmReturnReceived`/`finalizeReturnApproval`(액션별 mutation, 공통 소유권 가드 재사용), `/orders/returns` 화면(컬럼 조합으로 진행 단계 배지 계산, 거절은 기존 판매자승인 반려화면의 `RejectDialog`(Dialog+Textarea) 패턴 재사용)
+- kend 소유 영역(Toss 호출, 환불 계산, 재고복원, `refunded_at`)은 손대지 않음. 반품기간 재검증도 kend가 신청 시점에 이미 처리해 불필요
+- `database.types.ts`를 최신 스키마로 재생성해 함께 반영(로컬이 8/7 시점에 정체돼 있던 걸 이번에 발견)
+- **실사용 테스트는 아직 진행 안 함** — typecheck 통과, dev 서버에서 라우팅 정상 동작(인증 리다이렉트 확인)까지만 확인. 실제 판매자 계정으로 4단계 전체 플로우(1차승인→회수확인→최종승인, 거절→재진행 포함) 클릭 테스트가 **다음 작업 최우선 순위**
+
+---
+
+## 2026-08-07
+
+### [KEND-SELLER] 플랫폼 조건부 무료배송 admin 설정 화면 (Phase 2.5-5)
+
+- **`platform_settings` 테이블 추가** (싱글턴): `free_shipping_threshold`(기본값 0=off) — 장바구니 총액이 이 값 이상이면 판매자 배송비 정책과 무관하게 플랫폼이 배송비 부담
+- **admin 설정 화면** (`/system/settings`, `administrator` 전용): 임계값 조회/수정 폼, 네비게이션 "System" 메뉴에 "Platform Settings" 추가
+- kend이 이어서 `createOrder`에 실제 판정 로직 연동 완료: 상품금액 합계가 임계값 이상이면 판매자 자체조건 충족 여부와 무관하게 배송비 면제하되, **판매자 자체조건은 미달인데 플랫폼이 대신 면제한 경우만** `order_items.shipping_fee_bearer = 'PLATFORM'`으로 기록(Phase 3.5 정산 계산 입력값). 판매자 자체조건으로 원래 무료였던 건은 `SELLER` 유지. kend 측 DB 시뮬레이션 3케이스로 검증 완료
+- 실사용 흐름 종단 테스트(admin이 실제 값 설정 → 실주문 생성 → PLATFORM 기록 확인)는 아직 진행 안 함 — 현재 `platform_settings`에 row가 없어 사실상 off 상태
+
+---
+
+## 2026-08-06
+
+### [KEND-SELLER] Phase 2.5 착수 준비 — confirmed_at 기록 + return_window_days 스킵
+
+- **`orders.confirmed_at` 기록** (`updateOrderStatus`): 접수확인(`confirmed`) 전이 시에만 기록, 이후 상태전이에서는 건드리지 않음. kend의 발송 SLA cron(확인 후 3일 내 미발송 시 자동취소)이 이 값을 기산점으로 사용
+- **kend Phase 2.5 스키마 확장 반영** (`db:typegen`): `delivery_items.reason`(반품/교환 사유), `order_items.shipping_fee_bearer`(배송비 부담주체), `deliveries.status`에 `returning`(반송중) 추가 — 전부 kend 소유 스키마, seller는 타입만 반영
+- **`product_returns.return_window_days` 필드 추가 요청 철회**: 상품별/판매자별 반품기간 차등 니즈가 아직 없어 kend이 법정기간(단순변심 7일/하자·오배송 30일)을 상수로 하드코딩하는 것으로 정리. 착수 전 확인 과정에서 불필요한 스키마 변경을 미리 걸러냄
+- 다음: 플랫폼 조건부 배송비 admin 화면, RTS/장기미수령 기간기반 플래깅(`sync-tracking` 수정) — kend-seller 단독 진행 가능한 Phase 2.5 병렬 작업
+
+---
+
 ## 2026-08-04
 
 ### [KEND-SELLER] 재고 배지(품절/재고부족) 추가 + 취소 주문 노출 버그 수정 (P2-4 착수)
