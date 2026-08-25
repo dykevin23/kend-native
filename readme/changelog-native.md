@@ -7,6 +7,20 @@ KEND-NATIVE React Native WebView 앱의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-08-25
+
+### [KEND-NATIVE] Expo SDK 53→57 업그레이드 — Apple iOS 26 SDK(Xcode 26) 필수 정책 대응
+
+- **발단**: TestFlight 빌드가 90일 경과로 만료되어 재배포 시도 → 기존 빌드(13번, SDK 53/Xcode 구버전)로 App Store Connect 제출 시 `90725: SDK version issue` 거부. Apple이 모든 iOS/iPadOS 앱에 iOS 26 SDK(Xcode 26 이상) 빌드를 요구하기 시작함
+- **부수 이슈 1**: 재배포 과정에서 App Store Connect API 키가 403으로 거부됨 → 원인은 Apple Developer Program License Agreement 갱신 미동의. Apple Developer 계정에서 재동의 후 해결
+- **부수 이슈 2**: `eas.json` production 프로필에 `ios.image: "latest"`(Xcode 26 이미지) 지정 후 빌드하니, 기존 Expo SDK 53(React Native 0.79) 코드가 Xcode 26의 강화된 C++20 `consteval` 검사에서 컴파일 실패(`fmt` 라이브러리 관련) → SDK 자체를 올려야 하는 것으로 결론
+- **SDK 업그레이드**: `expo@53` → `expo@57`(React Native 0.79.4 → 0.86.2, React 19.0.0 → 19.2.8)로 전체 의존성 정렬. 부수적으로 `react-native-reanimated`/`react-native-worklets`가 expo-router의 트랜지티브 의존성으로 인해 SDK 57과 비매칭인 최신 버전(4.6.0/0.12.x)을 물어오던 문제 발견 → SDK 공식 매칭 버전(4.5.1/0.10.1)으로 명시적 고정
+- **코드 수정**: SDK 56부터 `expo-router`가 `@react-navigation/native`와 비호환이 되어, `app/index.tsx`의 `useFocusEffect` import를 `expo-router`로 변경(미사용된 `@react-navigation/native` 의존성 제거). `StyleSheet.absoluteFillObject` → `absoluteFill`(RN 0.86 타입 변경). `app.json`에서 더 이상 유효하지 않은 `newArchEnabled`/`android.edgeToEdgeEnabled` 필드 제거
+- **결과**: buildNumber 19로 iOS production 빌드 성공, App Store Connect 업로드 및 처리 완료 확인. TestFlight 테스트 그룹 배정은 다음 작업
+- **미확인**: Android는 이번에 재빌드하지 않음 — 다음 Android 빌드 시 동일 SDK 57 기준 적용 예정
+
+---
+
 ## 2026-05-07
 
 ### [KEND-NATIVE] swipe back 시 로딩 오버레이 차단

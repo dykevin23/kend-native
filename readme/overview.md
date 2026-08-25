@@ -1,6 +1,6 @@
 # KEND-NATIVE 현재 상황 (Overview)
 
-> 최종 업데이트: 2026-06-24 (골격 적용 — 동적 현황은 native 작업 시 갱신)
+> 최종 업데이트: 2026-08-25
 > KEND-NATIVE의 현재 상태 단일 대시보드. 개발 진행마다 갱신한다.
 > 작성 표준 → [core/readme-structure-guide.md](./core/readme-structure-guide.md) §8 (방식 vs 내용)
 > 완료 상세 → [changelog-native.md](./changelog-native.md) / 큰 계획 → [kend-roadmap-to-launch.md](./kend-roadmap-to-launch.md)
@@ -13,18 +13,21 @@
 
 ---
 
-## 🚦 지금 상황
+## 🚦 지금 상황 (2026-08-25)
 
-> ← _native에서 작업 시 갱신_ (아래는 참고 포인터)
-
+- 기존 TestFlight 빌드(13번, Expo SDK 53)가 90일 경과로 만료 → 재배포 시도 중 Apple의 iOS 26 SDK(Xcode 26) 필수 정책에 걸려 Expo SDK 53→57 업그레이드 진행
+- iOS buildNumber 19로 재빌드·제출 완료, App Store Connect 처리 완료 확인. **TestFlight 테스트 그룹 배정 및 테스터 재초대 확인은 아직**
+- Android는 이번 SDK 업그레이드 이후 재빌드하지 않음 (다음 Android 빌드 시 SDK 57 기준 적용됨)
 - iOS 심사 정체 등 플랫폼 공통 현황은 kend overview 참조
-- 네이티브 고유 현황(스와이프 제스처, WebView 브리지 등)을 여기에 기록
 
 ---
 
 ## ✅ 최근 완료
 
-> ← _[changelog-native.md](./changelog-native.md)에서 핵심 항목 요약_
+- Expo SDK 53→57 업그레이드 (Apple iOS 26 SDK/Xcode 26 필수 정책 대응) — iOS buildNumber 19 빌드 성공 및 App Store Connect 제출·처리 완료 확인
+- App Store Connect API 키 403 이슈 해결 (Apple Developer Program License Agreement 재동의 필요했음)
+
+> 상세 → [changelog-native.md](./changelog-native.md)
 
 ---
 
@@ -41,7 +44,9 @@
 
 ## 📋 다음 작업
 
-> ← _native 작업 시 채울 것_
+- [ ] TestFlight 내부/외부 테스트 그룹에 빌드 19 배정, 테스터 재초대 확인
+- [ ] Android도 SDK 57 기준으로 재빌드해 정상 동작 확인
+- [ ] SDK 업그레이드 이후 앱 전체 회귀 테스트 (WebView 로드, 소셜 로그인, 뒤로가기/스와이프 등)
 
 ---
 
