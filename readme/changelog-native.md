@@ -7,6 +7,29 @@ KEND-NATIVE React Native WebView 앱의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-09-10
+
+### [KEND-NATIVE] 결제 리다이렉트 구간 뒤로가기 차단 — 소진된 Toss 세션 복귀 방지
+
+- **증상**: 앱 결제 테스트 중 발견 — Toss 결제창(전체 페이지 이동)에서 취소 후 뒤로가기를 누르면 이미 소진된 Toss 세션 URL로 돌아가 "이미 종료된 세션입니다" 에러 페이지가 뜸. 기존 차단(`BACK_BLOCKED_REGEX`)은 kend 경로(`/payments/*`)만 커버, 외부 도메인(pay.toss.im 등)과 결제 종료 랜딩 URL은 미커버
+- **뒤로가기 차단을 2종류로 분리** (`app/index.tsx`):
+  - `isPaymentFlowUrl` — kend 아닌 모든 외부 도메인 + `/payments/*` + `payment_success`/`payment_error`/`payment_cancelled` 쿼리 랜딩. Android 하드웨어 back도 확인 Alert 없이 조용히 무시 (외부 페이지엔 자체 취소 UI 존재)
+  - `isFormFlowUrl` — `/auth/*`, `/children/(submit|:id/edit|:id/growth)`. 기존대로 확인 Alert
+- **결제 직후 복귀 화면 가드** (`justReturnedFromPaymentRef`): kend가 URL 쿼리를 클라이언트에서 제거한 뒤에도 "외부→kend 복귀 직후"임을 추적해 뒤로가기 계속 차단, 다른 pathname 이동 시 해제
+- **iOS back/forward 원천 차단**: `onShouldStartLoadWithRequest`에서 `navigationType === "backforward"`이고 현재 kend에 있는데 대상이 결제 리다이렉트 URL이면 `return false`
+- **흰 화면 깜빡임 완화**: kend↔외부(결제창) http(s) 최상위 전환 시 debounce 없이 즉시 로딩 오버레이 + 8초 안전 타임아웃
+- 상세: [active/native-swipe-blacklist.md](./active/native-swipe-blacklist.md), 배포/테스트 체크리스트: [todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md)
+
+### [KEND-NATIVE] iOS·Android 재빌드 및 테스트 트랙 배포
+
+- iOS buildNumber 20 — EAS 빌드 성공, App Store Connect 업로드 완료 (TestFlight)
+- Android versionCode 18 — EAS 빌드(AAB) 성공, Play Console 수동 업로드 후 **내부 테스트 트랙 출시**
+- 둘 다 SDK 57 + 위 결제 뒤로가기 수정 포함. Android는 SDK 57로 targetSdkVersion 36(Android 16) 충족 — Google Play의 2026-08-31 대상 API 정책은 프로덕션 승격 시 해제됨
+- **Android 개발자 인증**(2026-09-30 기한): 패키지 이름·서명 키가 Play Console에서 자동 등록되어 요구사항 충족 완료
+- **미확인**: 결제 취소→복귀, 소셜 로그인 회귀 등 실기기 테스트 체크리스트(위 handoff 문서)는 아직 수행 안 함
+
+---
+
 ## 2026-08-25
 
 ### [KEND-NATIVE] Expo SDK 53→57 업그레이드 — Apple iOS 26 SDK(Xcode 26) 필수 정책 대응
