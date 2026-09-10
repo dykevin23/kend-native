@@ -18,6 +18,23 @@ import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTyp
 import { useFocusEffect } from "expo-router";
 
 const WEB_APP_URL = "https://kend-seven.vercel.app";
+const KEND_HOST = "kend-seven.vercel.app";
+
+const isKendUrl = (url: string): boolean => {
+  try {
+    return new URL(url).hostname === KEND_HOST;
+  } catch {
+    return false;
+  }
+};
+
+const pathnameOf = (url: string): string => {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "";
+  }
+};
 
 // Google OAuth가 WebView를 차단(403 disallowed_useragent)하지 않도록
 // 일반 모바일 Safari User-Agent를 사용한다.
@@ -28,18 +45,49 @@ const CUSTOM_USER_AGENT = Platform.select({
 });
 
 // 뒤로가기 차단 URL 패턴 (readme/native-swipe-blacklist.md 참고)
-// 로그인/가입 플로우, 결제 콜백, 자녀 정보 입력 화면
-const BACK_BLOCKED_REGEX =
-  /^\/(auth|payments)(\/|$)|^\/children\/(submit|\d+\/(edit|growth))$/;
+// 로그인/가입 플로우, 자녀 정보 입력 화면 — 뒤로가면 입력 유실
+const FORM_FLOW_REGEX =
+  /^\/(auth)(\/|$)|^\/children\/(submit|\d+\/(edit|growth))$/;
 
-const isBackBlocked = (url: string): boolean => {
+// 리다이렉트 구간(결제·소셜로그인) — 뒤로가면 소진된 세션("이미 종료된 세션입니다")
+// 이나 결제창/OAuth URL로 돌아간다. 확인 Alert 없이 조용히 무시해야 하는 케이스.
+// (외부 도메인 페이지에는 대개 자체 취소/뒤로 UI가 있음)
+const isPaymentFlowUrl = (url: string): boolean => {
   try {
-    const pathname = new URL(url).pathname;
-    return BACK_BLOCKED_REGEX.test(pathname);
+    const parsed = new URL(url);
+
+    // 외부 도메인(Toss 결제창, 카드사 인증, 소셜로그인 제공자 등).
+    // kend는 단일 도메인 앱이므로 외부 도메인 = 항상 리다이렉트 중간 단계.
+    if (parsed.hostname !== KEND_HOST) return true;
+
+    // 결제 콜백/종료 랜딩 URL: 뒤로가면 Toss 결제창 URL로 돌아간다.
+    // (랜딩은 시작 지점에 따라 /carts, /products/:id, /orders 등 다양)
+    if (parsed.pathname.startsWith("/payments/")) return true;
+    if (
+      parsed.searchParams.has("payment_success") ||
+      parsed.searchParams.has("payment_error") ||
+      parsed.searchParams.has("payment_cancelled")
+    )
+      return true;
+
+    return false;
   } catch {
     return false;
   }
 };
+
+// 입력 유실 방지용 확인 Alert를 띄워야 하는 화면
+const isFormFlowUrl = (url: string): boolean => {
+  try {
+    return FORM_FLOW_REGEX.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+};
+
+// iOS 스와이프 뒤로가기 비활성화 대상 (두 경우 모두)
+const isBackBlocked = (url: string): boolean =>
+  isPaymentFlowUrl(url) || isFormFlowUrl(url);
 
 export default function Home() {
   const webViewRef = useRef<WebView>(null);
@@ -48,6 +96,16 @@ export default function Home() {
   const [hasError, setHasError] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [backBlocked, setBackBlocked] = useState(false);
+  // 현재 최상위 URL — Android 백 핸들러에서 결제구간/폼구간 구분에 사용
+  const currentUrlRef = useRef(WEB_APP_URL);
+  // 직전에 외부 도메인(Toss/카드사)에 있었는지 — 결제 리다이렉트 체인이 kend로
+  // 돌아올 때 오버레이로 덮기 위한 플래그
+  const wasExternalRef = useRef(false);
+  // 결제창에서 kend로 막 돌아온 상태인지 — 이 화면에서 뒤로가기를 누르면
+  // 히스토리상 소진된 Toss URL로 가므로 막아야 한다. kend가 쿼리파라미터
+  // (?payment_cancelled 등)를 제거한 뒤에도 유지되어야 해서 별도 ref로 추적.
+  const justReturnedFromPaymentRef = useRef(false);
+  const paymentReturnPathRef = useRef("");
 
   // 안드로이드 하드웨어 뒤로가기 버튼 처리
   useFocusEffect(
@@ -55,8 +113,17 @@ export default function Home() {
       if (Platform.OS !== "android") return;
 
       const onBackPress = () => {
-        // Blacklist URL: 확인 Alert 표시
-        if (backBlocked) {
+        // 결제 리다이렉트 구간, 또는 결제에서 막 돌아온 직후(쿼리파라미터가
+        // 클라이언트에서 제거된 뒤에도): 뒤로가면 소진된 Toss 세션/결제창으로 →
+        // 조용히 무시. (Toss 결제창에는 자체 취소 버튼이 있음)
+        if (
+          isPaymentFlowUrl(currentUrlRef.current) ||
+          justReturnedFromPaymentRef.current
+        ) {
+          return true;
+        }
+        // 입력 폼 구간: 확인 Alert 표시
+        if (isFormFlowUrl(currentUrlRef.current)) {
           Alert.alert(
             "화면을 나가시겠습니까?",
             "입력 중인 내용이 사라질 수 있어요.",
@@ -89,12 +156,34 @@ export default function Home() {
         onBackPress
       );
       return () => subscription.remove();
-    }, [canGoBack, backBlocked])
+    }, [canGoBack])
   );
 
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
-    setBackBlocked(isBackBlocked(navState.url));
+    currentUrlRef.current = navState.url;
+
+    if (!isKendUrl(navState.url)) {
+      wasExternalRef.current = true;
+    } else if (!navState.loading) {
+      if (wasExternalRef.current) {
+        // 외부(Toss) → kend 복귀 완료
+        wasExternalRef.current = false;
+        justReturnedFromPaymentRef.current = true;
+        paymentReturnPathRef.current = pathnameOf(navState.url);
+      } else if (
+        justReturnedFromPaymentRef.current &&
+        pathnameOf(navState.url) !== paymentReturnPathRef.current
+      ) {
+        // 결제 복귀 화면에서 사용자가 다른 화면으로 이동함 → 가드 해제
+        justReturnedFromPaymentRef.current = false;
+      }
+    }
+
+    // iOS 스와이프 뒤로가기 비활성화: 결제/폼 구간 + 결제 직후 복귀 화면
+    setBackBlocked(
+      isBackBlocked(navState.url) || justReturnedFromPaymentRef.current
+    );
   };
 
   // 로딩 오버레이 debounce: 300ms 이내 완료되는 네비게이션에서는
@@ -103,8 +192,56 @@ export default function Home() {
   // 뒤로/앞으로 네비게이션(스와이프 백 포함)에서는 로딩 오버레이를 띄우지 않는다
   const isBackForwardRef = useRef(false);
 
+  // 강제로 띄운 오버레이가 onLoadEnd 없이 방치되는 것 방지 (앱스킴 이탈 등)
+  const overlaySafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
   const handleShouldStartLoad = (request: ShouldStartLoadRequest) => {
     isBackForwardRef.current = request.navigationType === "backforward";
+
+    // kend 화면에서 back/forward 네비게이션(iOS 스와이프 포함)으로 결제 리다이렉트
+    // URL(외부 도메인 or /payments/* or 결제 종료 랜딩)로 되돌아가려 하면 취소한다.
+    // → 소진된 Toss 세션("이미 종료된 세션입니다")로 가는 것을 원천 차단.
+    // "kend에 있을 때"로 한정해 Toss/카드사 화면 내부의 뒤로가기는 방해하지 않는다.
+    // (Android는 navigationType이 항상 'other'라 하드웨어 백 핸들러에서 처리)
+    if (
+      request.navigationType === "backforward" &&
+      request.isTopFrame &&
+      isKendUrl(currentUrlRef.current) &&
+      isPaymentFlowUrl(request.url ?? "")
+    ) {
+      return false;
+    }
+
+    // 결제 리다이렉트 구간(kend → Toss 결제창 → kend 콜백)의 http(s) 최상위 이동에서만
+    // 문서 전환 사이의 흰 화면 깜빡임을 덮기 위해 debounce 없이 즉시 오버레이 표시.
+    // - isTopFrame: 결제위젯 iframe 로드(같은 화면 내) 제외
+    // - http(s)만: 카드앱 앱스킴 핸드오프(intent://, supertoss:// 등) 제외 (WebView는 현 페이지 유지)
+    const isHttpTopNav =
+      request.isTopFrame &&
+      request.navigationType !== "backforward" &&
+      /^https?:\/\//i.test(request.url ?? "");
+
+    if (isHttpTopNav) {
+      const leavingKend = !isKendUrl(request.url);
+      const returningFromPayment =
+        isKendUrl(request.url) && wasExternalRef.current;
+      if (leavingKend || returningFromPayment) {
+        if (loadingTimerRef.current) {
+          clearTimeout(loadingTimerRef.current);
+          loadingTimerRef.current = null;
+        }
+        setIsLoading(true);
+        if (overlaySafetyTimerRef.current)
+          clearTimeout(overlaySafetyTimerRef.current);
+        overlaySafetyTimerRef.current = setTimeout(
+          () => setIsLoading(false),
+          8000
+        );
+      }
+    }
+
     return true;
   };
 
@@ -119,6 +256,10 @@ export default function Home() {
     if (loadingTimerRef.current) {
       clearTimeout(loadingTimerRef.current);
       loadingTimerRef.current = null;
+    }
+    if (overlaySafetyTimerRef.current) {
+      clearTimeout(overlaySafetyTimerRef.current);
+      overlaySafetyTimerRef.current = null;
     }
     setIsLoading(false);
     if (isFirstLoad) {
