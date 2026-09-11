@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
+  Linking,
   Platform,
   StyleSheet,
   Text,
@@ -35,6 +36,18 @@ const pathnameOf = (url: string): string => {
     return "";
   }
 };
+
+// react-native-webview는 멀티윈도우(팝업)를 지원하지 않아 window.open() 호출이
+// 무시된다. BC카드/페이북 등 ISP 인증창이 window.open()으로 뜨는 경우를 대비해
+// 팝업 대신 현재 프레임에서 바로 이동하도록 재정의한다. 이렇게 이동하면
+// onShouldStartLoadWithRequest의 앱스킴 핸드오프 로직으로 자연스럽게 이어진다.
+const POPUP_REDIRECT_SCRIPT = `
+  window.open = function (url) {
+    if (url) { window.location.href = url; }
+    return null;
+  };
+  true;
+`;
 
 // Google OAuth가 WebView를 차단(403 disallowed_useragent)하지 않도록
 // 일반 모바일 Safari User-Agent를 사용한다.
@@ -214,14 +227,24 @@ export default function Home() {
       return false;
     }
 
+    // 카드앱 등 커스텀 URL 스킴(paybooc://, ispmobile:// 등) 핸드오프.
+    // iOS WKWebView는 http(s)가 아닌 스킴을 OS로 자동 위임하지 않으므로,
+    // 직접 Linking으로 열고 WebView 자체 네비게이션은 막는다.
+    const isHttpUrl = /^https?:\/\//i.test(request.url ?? "");
+    if (!isHttpUrl && request.url) {
+      Linking.canOpenURL(request.url)
+        .then((supported) => {
+          if (supported) return Linking.openURL(request.url);
+        })
+        .catch(() => {});
+      return false;
+    }
+
     // 결제 리다이렉트 구간(kend → Toss 결제창 → kend 콜백)의 http(s) 최상위 이동에서만
     // 문서 전환 사이의 흰 화면 깜빡임을 덮기 위해 debounce 없이 즉시 오버레이 표시.
     // - isTopFrame: 결제위젯 iframe 로드(같은 화면 내) 제외
-    // - http(s)만: 카드앱 앱스킴 핸드오프(intent://, supertoss:// 등) 제외 (WebView는 현 페이지 유지)
     const isHttpTopNav =
-      request.isTopFrame &&
-      request.navigationType !== "backforward" &&
-      /^https?:\/\//i.test(request.url ?? "");
+      request.isTopFrame && request.navigationType !== "backforward";
 
     if (isHttpTopNav) {
       const leavingKend = !isKendUrl(request.url);
@@ -307,6 +330,7 @@ export default function Home() {
           const { statusCode } = syntheticEvent.nativeEvent;
           if (statusCode >= 500) setHasError(true);
         }}
+        injectedJavaScriptBeforeContentLoaded={POPUP_REDIRECT_SCRIPT}
         // WebView 기본 설정
         javaScriptEnabled={true}
         domStorageEnabled={true}

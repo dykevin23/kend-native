@@ -10,16 +10,35 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.kend.app",
-      "buildNumber": "20",
+      "buildNumber": "22",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSCameraUsageDescription": "프로필 사진 촬영을 위해 카메라 접근 권한이 필요합니다.",
-        "NSPhotoLibraryUsageDescription": "프로필 사진 선택을 위해 사진 라이브러리 접근 권한이 필요합니다."
+        "NSPhotoLibraryUsageDescription": "프로필 사진 선택을 위해 사진 라이브러리 접근 권한이 필요합니다.",
+        "LSApplicationQueriesSchemes": [
+          "supertoss",
+          "kakaotalk",
+          "ispmobile",
+          "kb-acp",
+          "paybooc",
+          "kftc-bankpay",
+          "lotteappcard",
+          "mpocket.online.ansimclick",
+          "samsungpay",
+          "citispay",
+          "citicardappk",
+          "cloudpay",
+          "hdcardappcardansimclick",
+          "shinhan-sr-ansimclick",
+          "smhyundaiansimclick",
+          "nhallonepayansimclick",
+          "wooripay"
+        ]
       }
     },
     "android": {
       "package": "com.kend.app",
-      "versionCode": 18,
+      "versionCode": 20,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#FFEED0"
