@@ -1,6 +1,6 @@
 # KEND-NATIVE 현재 상황 (Overview)
 
-> 최종 업데이트: 2026-09-10
+> 최종 업데이트: 2026-09-11
 > KEND-NATIVE의 현재 상태 단일 대시보드. 개발 진행마다 갱신한다.
 > 작성 표준 → [core/readme-structure-guide.md](./core/readme-structure-guide.md) §8 (방식 vs 내용)
 > 완료 상세 → [changelog-native.md](./changelog-native.md) / 큰 계획 → [kend-roadmap-to-launch.md](./kend-roadmap-to-launch.md)
@@ -13,13 +13,12 @@
 
 ---
 
-## 🚦 지금 상황 (2026-09-10)
+## 🚦 지금 상황 (2026-09-11)
 
-- Expo SDK 53→57 업그레이드 완료(Apple iOS 26 SDK 정책 대응). 이어서 앱 결제 테스트에서 나온 **Toss 결제 취소 후 뒤로가기 → "이미 종료된 세션입니다"** 버그 수정
-- **iOS buildNumber 20** — App Store Connect 업로드 완료 (TestFlight). TestFlight 그룹 배정 확인만 남음
-- **Android versionCode 18** — Play Console 내부 테스트 트랙 출시 완료
-- Android 개발자 인증(9/30 기한) — Play Console 자동 등록으로 요구사항 충족
-- 결제 뒤로가기 수정의 **실기기 테스트 체크리스트는 아직 미수행** → [todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md)
+- BC카드/페이북 앱카드 결제 시 ISP 인증 화면으로 못 넘어가는 버그 수정: iOS 앱스킴 딥링크 핸드오프(`Linking.openURL`) + `window.open` 팝업 리다이렉트 처리 + `LSApplicationQueriesSchemes` 등록
+- **iOS buildNumber 22** — App Store Connect 업로드 완료 (TestFlight, Apple 처리 대기). **Android versionCode 20** — Play Console 수동 업로드로 배포 확인
+- 위 수정은 **아직 실기기 결제 테스트 미수행** — 구현만 완료, 다음 작업에서 검증 필요
+- 직전 이슈(Toss 결제 취소 후 뒤로가기 → "이미 종료된 세션입니다")는 iOS 20/Android 18에 반영해 배포했으나, 이 역시 **실기기 테스트 체크리스트 미수행** → [todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md)
 - iOS 심사 정체 등 플랫폼 공통 현황은 kend overview 참조
 
 ---
@@ -43,14 +42,16 @@
 | [ios-review-rejection-apr14](./active/ios-review-rejection-apr14.md) | _상태 채울 것_ |
 | [native-swipe-blacklist](./active/native-swipe-blacklist.md) | 결제 리다이렉트 구간 반영해 코드 적용 완료, 실기기 테스트 대기 |
 | [todo/native-payment-webview-handoff](./todo/native-payment-webview-handoff.md) | 결제 WebView 수정 배포·테스트 체크리스트 — 빌드/배포 완료, 체크리스트 미수행 |
+| 카드앱 딥링크·팝업 핸드오프 ([changelog](./changelog-native.md#2026-09-11)) | 앱스킴 핸드오프 + `window.open` 팝업 리다이렉트 구현·빌드 22/20 배포 완료, BC카드/페이북 실기기 테스트 대기 |
 
 ---
 
 ## 📋 다음 작업
 
-- [ ] iOS TestFlight 그룹에 빌드 20 배정, 테스터 재초대 확인
+- [ ] BC카드/페이북 등 앱카드 결제 실기기 재테스트 (buildNumber 22 / versionCode 20) — ISP 인증 화면 정상 전환, 팝업 리다이렉트 동작 확인
+- [ ] iOS TestFlight 그룹에 빌드 22 배정, 테스터 재초대 확인
 - [ ] 결제 뒤로가기 수정 실기기 테스트 ([todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md) 체크리스트 — 결제 취소→복귀, 소셜 로그인 회귀 등)
-- [ ] 테스트 통과 후 Android versionCode 18을 프로덕션으로 승격 (Target API 36 정책 알림 해제)
+- [ ] 테스트 통과 후 Android versionCode 20을 프로덕션으로 승격 (Target API 36 정책 알림 해제)
 
 ---
 

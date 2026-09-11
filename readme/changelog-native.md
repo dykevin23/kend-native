@@ -7,6 +7,29 @@ KEND-NATIVE React Native WebView 앱의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-09-11
+
+### [KEND-NATIVE] iOS 카드앱(페이북/ISP) 결제 딥링크·팝업 핸드오프 수정
+
+- **증상**: BC카드/페이북 결제 테스트 중, 페이북 웹 결제창에서 "결제하기"를 눌러도 카드사 인증(ISP) 화면으로 못 넘어가고 "결제 후 결제완료를 눌러주세요" 대기 화면에서 멈춤. 페이북 앱이 설치돼 있어도 열리지 않음
+- **원인 1 — 앱스킴 미핸드오프**: `onShouldStartLoadWithRequest`가 `paybooc://` 같은 비-http(s) 요청을 로딩 오버레이 로직에서 제외만 시키고 `return true`로 끝나, iOS WKWebView가 커스텀 스킴을 OS로 위임하지 않아 네비게이션이 조용히 무시됨
+- **원인 2 — `LSApplicationQueriesSchemes` 미등록**: 등록이 없으면 `Linking.canOpenURL()`이 앱 설치 여부와 무관하게 항상 `false` 반환
+- **원인 3 — 팝업 미지원**: BC카드/페이북 ISP 인증창은 `window.open()`으로 팝업을 띄우는데, `react-native-webview`는 멀티윈도우를 지원하지 않아 호출 자체가 무시됨(팝업이 아예 뜨지 않음)
+- **수정** (`app/index.tsx`):
+  - `handleShouldStartLoad`: http(s)가 아닌 요청은 `Linking.canOpenURL()` 확인 후 `Linking.openURL()`로 OS에 위임, WebView 자체 네비게이션은 `return false`로 차단
+  - `injectedJavaScriptBeforeContentLoaded`(`POPUP_REDIRECT_SCRIPT`)로 `window.open`을 `window.location.href` 이동으로 치환 → 위 앱스킴 핸드오프로 자연스럽게 이어짐
+- **수정** (`app.json`): `ios.infoPlist.LSApplicationQueriesSchemes`에 국내 PG/카드사 앱 스킴 등록 (`supertoss`, `kakaotalk`, `ispmobile`, `kb-acp`, `paybooc`, `kftc-bankpay`, `lotteappcard`, `mpocket.online.ansimclick`, `samsungpay` 등)
+- Android는 `intent://` 스킴을 `react-native-webview`가 자체 처리하는 경우가 많아 기존에도 동작했을 가능성 있음 — iOS 수정 후 동일 시나리오로 재테스트 필요
+
+### [KEND-NATIVE] iOS buildNumber 22 / Android versionCode 20 빌드·배포
+
+- 위 결제 딥링크·팝업 수정 포함해 EAS production 빌드(iOS·Android 둘 다 `autoIncrement`로 각각 22/20 부여)
+- iOS: App Store Connect 업로드 성공(TestFlight, Apple 처리 대기)
+- Android: AAB를 Play Console에 수동 업로드해 배포 확인
+- **미확인**: 실기기에서 BC카드/페이북 결제 흐름 재테스트는 아직 수행 안 함
+
+---
+
 ## 2026-09-10
 
 ### [KEND-NATIVE] 결제 리다이렉트 구간 뒤로가기 차단 — 소진된 Toss 세션 복귀 방지
