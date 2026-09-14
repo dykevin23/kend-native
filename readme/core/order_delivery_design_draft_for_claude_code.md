@@ -1,10 +1,14 @@
-# 주문(Order) & 배송(Delivery) 설계 문서 (결제 TBD)
+# 주문(Order) & 배송(Delivery) 설계 문서 (초기 draft, 결제 연동 전)
 
-본 문서는 **결제 기능을 아직 확정하지 않은 상태(TBD)**에서,
-멀티 셀러 기반 커머스 애플리케이션의 **주문·배송 도메인 설계 방향**과
-이에 따른 **테이블 구조, 정책 원칙, 비즈니스 판단 기준**을 정리한 문서이다.
+> ⚠️ **초기 설계 draft다 (결제 연동 전 작성).** 이후 실제 구현·정책 결정이 훨씬 진전됐다.
+> **현행 기준은:**
+> - 정책 근거·미결정 사항 → [../todo/order-cancel-refund-exchange-flow.md](../todo/order-cancel-refund-exchange-flow.md)
+> - Phase 배치·작업 순서 → [../todo/order-lifecycle-master-plan.md](../todo/order-lifecycle-master-plan.md)
+> - 실제 스키마 → `app/features/orders/schema.ts`
+> 이 문서는 **초기 설계 의도의 히스토리 기록**으로 유지. 여기 내용과 위 문서가 다르면 위 문서가 맞다.
 
-Claude Code(또는 다른 LLM)에게 현재 설계 의도와 방향성을 공유하기 위한 목적을 가진다.
+본 문서는 결제 기능을 확정하지 않은 상태(TBD)에서 멀티 셀러 커머스의 **주문·배송 도메인 설계 방향**과
+테이블 구조·정책 원칙·비즈니스 판단 기준을 정리한 것이다.
 
 ---
 

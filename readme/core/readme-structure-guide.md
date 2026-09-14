@@ -42,12 +42,10 @@ readme/
 현재 진행 중이거나, 가까운 시일 내 완료 예정인 작업 계획/기록.
 
 **예시**:
-- `internal-test-1st.md` — 1차 내부 테스트 개선사항
-- `ios-review-rejection-apr14.md` — iOS 심사 대응
-- `environment-separation-plan.md` — Supabase 환경 분리
-- `native-swipe-blacklist.md` — 네이티브 협업 항목
+- `native-swipe-blacklist.md` — 네이티브 협업 항목 (현재 작업 중)
 
 **판단 기준**: "지금 내가 일하고 있는/곧 할 일" → active
+> ⚠️ 착수 안 한 계획이 `active/`에 쌓이지 않게 한다 — 시작 전이면 `todo/`, 끝났으면 `archive/`.
 
 ### `todo/` — 아직 시작 전 plan
 
@@ -135,6 +133,47 @@ todo/  ──(작업 시작)──▶  active/  ──(완료)──▶  archive
 | `application-architecture.md` | 라우팅 구조, 디렉토리 구조, 기술 스택 변경 시 |
 | `auth-model.md` | 인증/인가 정책 변경 시 |
 | `ui-components.md` | 공용 UI 컴포넌트 규격/사용법 변경 시 |
+
+---
+
+## 5.5 문서 현행화 규칙 (stale 방지)
+
+문서가 오래돼서 "이게 맞는 문서인가?"를 매번 파일 열어봐야 하는 상태를 막기 위한 규칙.
+
+### 트래커는 3개, 역할이 다르다 — 헷갈리면 이 순서로 본다
+
+| 문서 | 역할 | 갱신 주체·시점 |
+|---|---|---|
+| **overview.md** | 지금 상황 한 화면 대시보드 | `/changelog` 호출 시에만 (사용자) |
+| **kend-milestones.md** | Phase별 전체 트래커 (출시까지 남은 범위) | `/changelog` 호출 시 §3 절차로 함께 훑음. Phase Due 재산정만 대표 협의 |
+| **kend-roadmap-to-launch.md** | 4월 원 계획 (공수 산정 기준) | 거의 안 바뀜. Phase 구조는 milestones가 현행 — 상단 매핑표 참고 |
+
+- **"현재 상태"를 알고 싶으면 overview → milestones 순.** roadmap은 원안 참고용.
+- 세부 계획 문서(`todo/`, `active/`)와 트래커가 다르면 **세부 문서가 맞다** (트래커는 요약).
+
+### 폴더 규율 — 착수/완료 시 즉시 이동
+
+```
+todo/  ──(착수)──▶  active/  ──(완료·폐기)──▶  archive/
+```
+
+- **`active/`에는 "지금 실제로 하고 있는 것"만.** 착수 안 한 계획이 쌓이면 → `todo/`로 되돌린다.
+- 계획이 **끝나거나 폐기(supersede)되면 즉시 `archive/`로 `git mv`.** 파일명은 안 바꾼다.
+- 옮긴 뒤 그 문서를 링크하던 곳(milestones/roadmap/overview/다른 todo)의 경로를 고친다.
+- 폐기된 문서 상단에는 `⚠️ 폐기(superseded): [대체문서](...)` 배너를 남긴다 (지우지 말고 archive).
+
+### stale 표시
+
+- 오래됐는데 아직 유효한 내용이면 **지우지 말고** 상단에 `> 최종 갱신: YYYY-MM-DD` + 바뀐 부분에 `*(YYYY-MM-DD 정정)*` 주석.
+- 큰 방향 전환이 있으면 문서 상단에 개정 배너 (예: roadmap, order_delivery draft).
+- `core/` 문서의 "SoT" 주장은 실제와 맞을 때만 유효 — 어긋나면 그게 최우선 수정 대상.
+
+### `/changelog` 시 매번 하는 것 (요약)
+
+1. changelog append (git 따라잡기)
+2. overview CRUD 갱신
+3. milestones 해당 Phase 항목 상태 정정 + "현재 상태" 노트 한 줄
+4. 끝난/착수한 계획 문서 폴더 이동 + 링크 수정
 
 ---
 

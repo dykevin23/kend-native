@@ -23,37 +23,47 @@
 
 ## 2. Table Ownership Matrix
 
-각 테이블은 명확한 도메인 소유권을 가진다.
+각 테이블은 명확한 도메인 소유권을 가진다. **소유 = 스키마(`schema.ts` + migration)를 관리하고 주로 write하는 앱.**
+정확한 컬럼은 각 `schema.ts`가 SoT — 아래는 소유/역할 개요.
 
-| Table Name             | Owner App   | Primary Role              | Description                                   |
-| ---------------------- | ----------- | ------------------------- | --------------------------------------------- |
-| profiles               | Shared      | customer / seller / admin | 인증 프로필 및 역할 정보                      |
-| products               | Kend-Seller | seller                    | 판매자 상품 기본정보                          |
-| product_details        | Kend-Seller | seller                    | 판매자 상품 상세정보                          |
-| product_stock_keepings | Kend-Seller | seller                    | 상품 재고관리                                 |
-| product_options        | Kend-Seller | seller                    | 상품 옵션                                     |
-| product_images         | Kend-Seller | seller                    | 상품 이미지                                   |
-| product_descriptions   | Kend-Seller | seller                    | 상품 설명                                     |
-| admin_sellers          | Kend-Seller | seller                    | 판매자 정보                                   |
-| admin_seller_members   | Kend-Seller | seller                    | 판매자 직원정보                               |
-| admin_seller_address   | Kend-Seller | seller                    | 판매자 주소지 관리                            |
-| domains                | Kend-Seller | admin                     | 서비스 도메인 관리                            |
-| main_categories        | Kend-Seller | admin                     | 상품 메인 카테고리                            |
-| sub_categories         | Kend-Seller | admin                     | 상품 하위 카테고리                            |
-| system_options         | Kend-Seller | admin                     | 시스템 옵션(시스템에서 정의한 기본 제공 옵션) |
-| common_code_group      | Kend-Seller | admin                     | 공통코드 그룹                                 |
-| common_codes           | Kend-Seller | admin                     | 공통코드                                      |
-| hashtags               | Shared      | admin                     | 공통 해시태그 마스터 (상품/판매자 등 공유)    |
-| seller_hashtags        | Kend-Seller | seller                    | 판매자-해시태그 연결                          |
-| seller_banners         | Kend-Seller | seller                    | 판매자 스토어 배너 이미지                     |
+> 최종 갱신: 2026-09-10 (kend/seller schema.ts 전수 대조). 테이블 추가/삭제·소유 변경 시 이 표를 함께 갱신한다.
 
-<!-- | children    | Kend        | customer                  | 사용자 자녀 데이터       |
+### 판매자·상품·시스템 도메인 (Owner: Kend-Seller)
 
-| inventories | Kend-Seller | seller                    | 상품 재고 관리           |
-| orders      | Shared      | customer / seller         | 주문 전체 라이프사이클   |
-| order_items | Shared      | customer / seller         | 주문 상세 항목           | -->
+| Table | Role | Description |
+| --- | --- | --- |
+| products / product_details / product_stock_keepings / product_options / product_images / product_descriptions | seller | 상품 기본·상세·SKU재고·옵션·이미지·설명 |
+| product_deliveries / product_returns | seller | 상품별 배송 설정 / 반품지·반품배송비 메타 |
+| admin_sellers / admin_seller_members / admin_seller_address | seller | 판매자 정보·직원·출고/반품 주소 |
+| seller_hashtags / seller_banners | seller | 판매자-해시태그 연결 / 스토어 배너 |
+| domains / main_categories / sub_categories / system_options | admin | 서비스 도메인·카테고리·기본 제공 옵션 |
+| common_code_group / common_codes | admin | 공통코드 |
+| platform_settings | admin | 플랫폼 전역 설정 (조건부 무료배송 임계값, 수수료율 등) |
+| settlement_items | admin | 정산 항목 (월별 계산 배치 결과) — Phase 3.5 |
 
-> Owner App은 **주로 데이터를 생성/관리하는 책임 주체**를 의미한다.
+### 구매자·주문·성장 도메인 (Owner: Kend)
+
+| Table | Role | Description |
+| --- | --- | --- |
+| profiles | Shared (customer/seller/admin) | 인증 프로필 및 `role`. auth.users와 1:1 |
+| user_addresses | customer | 구매자 배송지 |
+| children / growth_records | customer | 자녀 정보 / 성장기록 (`is_dummy` 더미 포함) |
+| carts | customer | 장바구니 (sku 단위) |
+| order_groups | customer (seller 조회) | 결제 단위. payment_key 스냅샷, status 머신 |
+| orders | customer (seller 조회·상태전이) | 판매자 단위 주문 (배송그룹) |
+| order_items | customer (seller 조회) | 주문 상품. `shipping_fee_bearer` 등 정산 입력값 스냅샷 |
+| payments | customer | 결제 상세 (Toss confirm 응답) |
+| deliveries / delivery_items | customer (seller 상태전이) | 배송 묶음 / 배송 상품. 반품·교환 상태(`return_requested` 등) |
+| product_likes / store_likes | customer | 상품 찜 / 스토어 찜 |
+| reviews / review_images | customer (seller 답변) | 리뷰 + 이미지(최대 5). `seller_reply` 컬럼 |
+| inquiries | customer (seller/admin 답변) | 문의 Q&A. `order_item_id`로 판매자 특정 |
+| follows | customer | 팔로우 (`followerCount`는 아직 미연동, 드롭 후보) |
+| entity_status_history | (trigger) | 상태 변경 이력 (반품 승인/거절 이력 등 트리거 기반) |
+
+| hashtags | Shared (admin) | 공통 해시태그 마스터 (상품/판매자 공유) |
+
+> Owner App = **주로 데이터를 생성/관리하는 책임 주체**. 조회는 양쪽 앱 모두 필요에 따라 base table에 직접 접근한다.
+> ⚠️ 정산(`settlement_items`)은 2026-08-31에 kend→kend-seller로 소유 정정됨(실제 write가 seller admin 화면뿐). 이력: milestones Phase 3.5.
 
 ---
 

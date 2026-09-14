@@ -15,9 +15,11 @@
 >
 > **2026-08-04 핵심**: ✅ Phase 2 종료(재고차감/복원 포함) / 🆕 **Phase 2.5(주문 라이프사이클 완결) 신설** — 구매확정·반품환불교환·문의·SLA·배송예외·플랫폼배송비를 하나로 묶음, 구 P3-1과 P2-9(선택→필수)를 흡수 / 정산은 **Phase 3.5**로 이동(구 Phase 3) / Phase 2 선택 편의기능(구 P2-7·8·10)은 Phase 2.5·Phase 3(관리보완)로 재배치 / 🚨 iOS 심사 정체 지속
 >
-> **2026-09-07 갱신**: ✅ **Phase 3.5(정산) 종료**(2026-09-03, kend-seller 전부 완료) / ✅ Phase 3 중 **리뷰 작성/조회(kend)** + **찜 목록 스토어 탭** 완료·실사용 테스트 통과 — 리뷰관리(답변/통계/필터)는 kend-seller가 이어서 진행 중, kend은 추가 작업 불필요
+> **2026-09-07 갱신**: ✅ **Phase 3.5(정산) 종료**(2026-09-03, kend-seller 전부 완료) / ✅ Phase 3 중 **리뷰 작성/조회(kend)** + **찜 목록 스토어 탭** 완료·실사용 테스트 통과 — 리뷰관리(답변/통계/필터)는 kend-seller가 이어서 진행 중
 >
-> ⚠️ **스케줄 슬립 — 재산정 필요**: 아래 Phase 종료일(5~7월)은 모두 지났음. Phase 2.5/3/3.5 각 항목 Due는 아직 미배정 — 착수 시 재산정 필요. 내부 타겟 2026-09-30 재조율 필요.
+> **2026-09-10 갱신**: Toss 계약심사 회신 대응 중(회신까지 1~2개월 지연 안내) / 결제 앱 WebView 흐름 보강(P1-4) + kend-native 짝 변경 EAS 빌드 대기 / readme 현행화 — stale 항목 정정, **Phase 4에 P4-4(UX 기술부채: 캐싱·앱스킴) 신설**, 주간 로그 폐지
+>
+> ⚠️ **스케줄**: 아래 "주요 마일스톤" 표의 Phase 종료일(5~9월)은 전부 지난 계획치. **상위 목표 = 연내 출시**는 유효, 내부 타겟(9월 말)은 Toss 심사 지연으로 10~12월 이연 가능. Phase별 Due 재산정은 대표님과 협의 필요 (미완료 액션).
 
 ---
 
@@ -99,32 +101,30 @@
   - [ ] placeholder/미완성 UI 전부 제거 (결제 "준비 중" 화면 재검토 — 가능하면 Toss 실키 적용 후 실제 동작 상태로)
   - [ ] 04-14 지적 4건 iPhone 실기기 재검증 (Apple Sign In, 카메라, iPad only 제외, 마이페이지 버튼)
   - [ ] 전 화면 안정성/일관성 재점검 후 새 build number로 제출
-- **참고**: [ios-review-rejection-apr14.md](active/ios-review-rejection-apr14.md)
+- **참고**: [ios-review-rejection-apr14.md](archive/ios-review-rejection-apr14.md) (4/14 스냅샷, 이후 경과는 위 타임라인)
 - **note**: 심사 정체는 **출시(release)만 막고 개발은 막지 않음** → 개발 병렬 진행
 
 #### 🟢 P0-2. 1차 내부 테스트 잔여 처리 (대부분 완료, swipe rollout 잔여)
 - **Due**: 2026-05-01 (일부 잔여 진행 중)
-- **참고**: [internal-test-1st.md](active/internal-test-1st.md)
+- **참고**: [internal-test-1st.md](archive/internal-test-1st.md) (15/18 완료, 잔여 2건은 휴대폰 인증 이연분)
 - **포함**: 스와이프 뒤로가기 UX 개선, 네이티브 스와이프 차단 URL blacklist 적용
 - **제외**: 휴대폰 인증 연계 2건 (→ Phase 1에서 통합)
 - **Sub-task**:
   - [x] Cache-Control 정책 조정 — [app/entry.server.tsx](../app/entry.server.tsx) (`/auth`, `/payments`, `/children` 민감 경로 `no-store` / 그 외 `private, max-age=60`)
   - [x] iOS 실기기 swipe back 진단 (가설: bfcache 미작동 → 결과: **bfcache가 아닌 React Router single fetch의 loader 재실행**이 원인)
-  - [x] `clientLoader` 캐시 헬퍼 도입 + `/stores`, `/stores/:storeId` 2개 라우트 적용 → swipe back 시 loader 단계 없이 즉시 복귀 확인
-  - [ ] **나머지 라우트로 펼치기** (저위험 일괄 + 고위험 invalidation 인프라) → [client-loader-cache-rollout](todo/client-loader-cache-rollout.md)
-  - [ ] 네이티브 스와이프 차단 URL blacklist 최종 적용
+  - [x] `clientLoader` 캐시 헬퍼 도입 + `/stores`, `/stores/:storeId` 2개 라우트 적용
+  - [ ] **캐싱 전략 재정립** — 2026-09-09: `clientLoader` 영구캐시가 "스토어 목록 stale" 버그를 유발함 확인. `makeCachedClientLoader` 삭제 + 전 라우트 항상 신선 방향으로 재확정 → [data-freshness-caching-policy.md](todo/data-freshness-caching-policy.md) (구 `client-loader-cache-rollout.md`는 archive)
+  - [x] 네이티브 스와이프 차단 URL blacklist 적용 (2026-09-10, 결제 리다이렉트 구간 포함해 재정비 — [native-swipe-blacklist.md](active/native-swipe-blacklist.md))
 
-#### 🟢 P0-3. 에러 핸들링 — Week 1 완료, Week 2-3 일부 잔여
-- **Due**: 2026-05-01 (잔여 진행 중)
-- **참고**: [kend-error-handling-roadmap.md](todo/kend-error-handling-roadmap.md)
-- **✅ 구현됨**: 공통 에러 핸들러 `app/lib/error-handler.ts`(`parseSupabaseError` 10개 파일 적용) · Auth 만료 `useAuthListener.ts` · Toast(`<Toaster/>` 마운트) · 이미지 검증 `validate-image.ts`
+#### 🟢 P0-3. 에러 핸들링 — 대부분 완료, QA성 잔여만
+- **Due**: 2026-05-01 → 잔여는 Phase 4 QA로 흡수
+- **참고**: [kend-error-handling-roadmap.md](todo/kend-error-handling-roadmap.md) (v2.0, 완료 항목 다수 — 착수 시 status pass 필요)
+- **✅ 구현됨**: 공통 에러 핸들러 `app/lib/error-handler.ts` · Auth 만료 `useAuthListener.ts` · Toast · 이미지 검증 `validate-image.ts` · 오프라인 감지 `useNetworkStatus`+`offline-banner` · console.log 정리 · 결제 플로우 에러처리(위젯 초기화 실패 UI+재시도, 취소/실패 분기, 2026-09-10)
 - **잔여 Sub-task**:
-  - [x] **오프라인 감지** — `useNetworkStatus` 훅 + `offline-banner` (실기기 비행기모드 확인, 2026-07-09)
-  - [x] console.log 정리 (디버그 로그 8건 제거, 2026-07-09)
-  - [ ] PostHog 에러 추적 (패키지 미설치) — QA(Phase 4) 전까지면 됨
+  - [ ] PostHog 에러 추적 (패키지 미설치) — Phase 4 QA 전까지
   - [ ] Edge Function 응답 표준화 `_shared/response.ts`
   - [ ] WebView 에러 브리지 (N-2, kend-native 연동 필요)
-  - [ ] 폼 validation 표준화 → [form-validation-standard.md](todo/form-validation-standard.md)로 분리
+  - [ ] 폼 validation 표준화 → [form-validation-standard.md](todo/form-validation-standard.md) (출시 후로도 가능)
 
 ---
 
@@ -144,27 +144,24 @@
 
 > 📌 **P1-3~P1-5는 코드 확인 결과 대부분 구현됨 (2026-06-18 정정).** 4/24 보드의 "미착수"는 오류. 남은 핵심은 **결제 플래그 해제 + Toss 키(EXT-3) + 실테스트**, 그리고 환불/취소 실행 로직.
 
-#### 🟡 P1-3. 주문 도메인 DB 설계 — **테이블 ✅ / RLS·인덱스·배치 ❌ (정정 2026-06-18)**
-- **✅ 완료**: [orders/schema.ts](../app/features/orders/schema.ts)에 order_groups · payments · orders · order_items · deliveries · delivery_items + 상태 enum 전체. 마이그레이션 적용됨. 상태 머신(enum) 정의 포함
-- **🔒 누락 — RLS 정책 → 출시 전 하드닝(P4-3)으로 이연 (6/18 결정)**: 로드맵 P1-3 "RLS 정책 설계" + [database.md](../core/database.md) §64/§105가 명시했으나 미구현. **범위는 주문 도메인이 아니라 DB 전체 ~33개 테이블**(profiles·children·carts·product_*·seller_* 등 kend/seller 공유). 실데이터 없어 긴급도 낮음 → 출시 전 적용. 정책 작성·테스트는 개발단계에서 선행(막판 금지)
-- **🟡 누락 — 인덱스**: 설계 문서 §11이 명시한 인덱스(user_id/status/created_at/tracking 등)가 schema.ts에 미정의 → 마이그레이션에도 없음. 주문 조회 성능
-- **🟡 누락 — 배치**: 설계 §9.2/§10의 `payment_in_progress` → `failed` 미응답 정리 배치(cron) 미구현 → 미완료 주문 적체 위험
-- **연계**: RLS는 P0-3의 "RLS 전수 점검"과 묶어서 처리
+#### 🟡 P1-3. 주문 도메인 DB 설계 — **테이블·배치 ✅ / RLS·인덱스 ❌**
+- **✅ 완료**: [orders/schema.ts](../app/features/orders/schema.ts)에 order_groups · payments · orders · order_items · deliveries · delivery_items + 상태 enum 전체, 마이그레이션 적용. 상태 머신 정의 포함
+- **✅ 배치**: `expire_pending_orders`(`payment_in_progress` → `failed` 미응답 정리) 구현 완료 + pg_cron 등록. 임계치 15분/주기 5분으로 튜닝됨 (2026-08, changelog 참고). *(구 "미구현" 기록은 stale였음, 2026-09-10 정정)*
+- **🔒 누락 — RLS 정책 → Phase 4(P4-3)로 이연 (6/18 결정)**: 범위는 주문 도메인이 아니라 **DB 전체 ~33개 테이블**(kend/seller 공유). 실데이터 없어 긴급도 낮음. 정책 작성·테스트는 개발단계 선행(막판 금지)
+- **🟡 누락 — 인덱스**: user_id/status/created_at/tracking 등 조회 인덱스 미정의. → Phase 4 P4-3 "prod 최종 확인"에서 처리
 
-#### ✅ P1-4. TossPayments 결제창 + 주문-결제 트랜잭션 — **E2E 검증 완료 (실키 전환만 남음)**
+#### ✅ P1-4. TossPayments 결제창 + 주문-결제 트랜잭션 — **E2E 검증 완료, 앱 결제흐름 보강까지**
 - **Due**: 2026-05-22 → 검증 2026-07-09
-- **✅ 완료**: 주문 생성 · TossPayments Confirm API · 결제 success/fail · 결제 위젯. **docs 테스트 키로 주문→결제→confirm→`paid` 전 흐름 E2E 검증 완료** (payments 저장·장바구니 정리·주문내역 노출, 실패 시 `payment_in_progress` 비노출 확인). console.log 정리·타입 오류 수정 완료
+- **✅ 완료**: 주문 생성 · Confirm API · success/fail · 결제 위젯. docs 테스트 키로 전 흐름 E2E 검증. `PAYMENT_COMING_SOON=false`로 활성화(2026-09-01)
+- **✅ 앱 WebView 결제흐름 보강 (2026-09-10)**: `shouldRevalidate`로 주문생성 후 ErrorBoundary 깜빡임 제거, `returnTo`로 시작지점 복귀, 취소/실패 배너 분기, 위젯 에러+재시도 UI. kend-native 짝 변경(뒤로가기 가드·흰화면 오버레이)은 [native-payment-webview-handoff.md](todo/native-payment-webview-handoff.md), EAS 빌드 대기
 - **❌ 남은 일**:
-  - [ ] **실키 전환** — EXT-5 승인 후 `.env`를 라이브 키로 교체 + `PAYMENT_COMING_SOON` 해제 (출시 시)
-  - [ ] 웹훅 처리 확인 (구현 여부 미검증)
-  - [ ] 미완료결제(`payment_in_progress`) → `failed` 정리 cron (P1-3 배치 항목)
+  - [ ] **실키 전환** — EXT-5 승인 후 `.env` 라이브 키 교체 (Vercel 환경변수는 테스트 키로 이미 등록됨)
+  - [ ] 웹훅(webhook) 처리 확인 — 구현 여부 미검증. → Phase 4 QA
+  - [ ] 앱스킴 처리 (`intent://` 등 → `Linking.openURL`) — 현재 iOS 카드사 인증은 뜨나 Android 앱카드에서 필요할 수 있음. → Phase 4 또는 kend-native 트랙
 
-#### 🟡 P1-5. 결제 환불/취소 + 조회 UI + 차단 플래그 — **부분 구현 (← 다음 착수)**
-- **Due**: 2026-05-29
-- **선행**: P1-4
-- **✅ 구현됨**: 주문 내역 조회 UI([orders-page.tsx](../app/features/orders/pages/orders-page.tsx) 상태탭 포함) · 차단 플래그(`PAYMENT_COMING_SOON`)
-- **❌ 미구현**: 결제 취소/환불 실행 로직(Toss cancel API·mutation 없음) · 구매확정 · 이중결제 방지 확인
-- **Sub-task**: (착수 시 추가)
+#### ✅ P1-5. 결제 환불/취소 + 조회 UI — **주문취소/전액환불 완료, 이후는 Phase 2.5에서**
+- **✅ 완료**: 주문 내역 조회 UI, 차단 플래그, `cancelOrderGroup`(Toss 전액취소 연동, P1-5 커밋). 구매확정·부분환불(반품)은 Phase 2.5 P2.5-2/P2.5-3에서 완료
+- **잔여**: kend-seller 판매자취소의 Toss 환불 미연동(버그 #3) → [order-cancel-refund-exchange-flow §5](todo/order-cancel-refund-exchange-flow.md) 추적 중
 
 ---
 
@@ -233,9 +230,10 @@
 - **완료**: kend-seller `platform_settings` 테이블 + admin 설정화면, kend `createOrder`에서 임계값 비교 후 `order_items.shipping_fee_bearer`(SELLER/PLATFORM) 반영 — Phase 3.5 정산 계산 입력값으로 사용 예정
 - **담당**: kend-seller(admin 화면) + kend(주문 생성 로직) 양쪽 완료
 
-#### 🟡 P2.5-6. 배송 예외 처리 (신규)
-- **포함**: 오배송/파손/분실(반품 사유코드로 흡수, 책임소재 안 따지고 구매자 우선 처리 원칙) / 장기미수령·수취거절 반송(RTS) — 스마트택배 sync-tracking에 기간기반 플래깅 추가(`in_transit` N일 정체 시 수동확인 알림), `deliveries.status`에 반송 상태 추가
-- **담당**: kend-seller (`sync-tracking` Edge Function 수정, 아직 미출시라 안전하게 변경 가능)
+#### 🟡 P2.5-6. 배송 예외 처리 (신규) — **kend 쪽 준비 완료, kend-seller `sync-tracking` 잔여**
+- **✅ kend**: 오배송/파손/분실은 반품 사유코드(`DEFECT`/`WRONG_ITEM`/`DAMAGED`/`LOST`)로 흡수 완료(P2.5-3). `deliveries.status`에 `returning`(반송중) 추가, kend 취소/환불 탭이 이 값을 이미 인식하도록 반영
+- **🟡 kend-seller 잔여**: `sync-tracking` Edge Function에 기간기반 플래깅(`in_transit` N일 정체 시 수동확인 알림) + `returning` 세팅 로직 — 미착수. 이것만 되면 kend 쪽 추가 작업 없이 노출됨
+- ⚠️ Phase 2.5는 "종료"지만 이 서브항목은 kend-seller 잔여로 남음 (kend-seller changelog에서 추적)
 
 ---
 
@@ -253,6 +251,8 @@
 - **CS관리 운영기능** (필터링/담당자배정/통계 — P2.5-4 문의 코어 위에 얹는 레이어)
 - **최근 본 상품 (kend)** — `recent-products-page.tsx`가 항상 "최근 본 상품이 없습니다" 고정 표시하는 정적 스텁, 열람 이력 저장/조회 로직 없음
 - **상품 사이즈표 가짜 데이터 (kend)** — `product-size-description.tsx`가 상품과 무관하게 고정 사이즈표(12M/24M/36M) 표시. 상품/SKU별 사이즈 데이터 자체가 스키마에 없음
+
+> 데이터 신선도/캐싱, 결제 앱스킴 등 **크로스커팅 기술부채는 Phase 3이 아니라 [Phase 4 P4-4](#p4-4-ux-기술부채-신설)** 참고.
 
 **진행 중**
 - 🔄 **리뷰 관리 (구 P2-10 잔여, kend-seller)** — kend 쪽(작성/조회/이미지/판매자답변 스키마)은 전부 완료·실사용 테스트 통과(2026-09-07). kend-seller가 답변 작성·통계·날짜검색·미답변필터 화면 진행 중 — kend은 추가 작업 불필요
@@ -303,7 +303,7 @@
 
 #### 🟡 P4-1. Supabase dev/prod 환경 분리
 - **Due**: 2026-07-24
-- **참고**: [environment-separation-plan.md](active/environment-separation-plan.md)
+- **참고**: [environment-separation-plan.md](todo/environment-separation-plan.md)
 - **Sub-task**: (착수 시 추가)
 
 #### 🟡 P4-2. 통합 QA
@@ -314,10 +314,21 @@
 #### 🟡 P4-3. 실운영 전환 체크리스트
 - **Due**: 2026-08-07
 - **선행**: EXT-5(실키) 완료  *(EXT-6 NICE는 Holding — 본인확인 불필요 방향)*
-- **포함**: 실키 전환, ~~NICE 실서비스~~(Holding), Supabase prod 확인, 도메인/SSL, PostHog 프로덕션, 1호 판매자 온보딩, 차단 플래그 테스트, 무결성 쿼리, 약관 최신화
+- **포함**: 실키 전환, ~~NICE 실서비스~~(Holding), Supabase prod 확인, 도메인/SSL, PostHog 프로덕션, 1호 판매자 온보딩, 차단 플래그 테스트, 무결성 쿼리, 약관 최신화, 결제 웹훅 처리 확인
   - **🔒 전체 테이블 RLS 적용·검증** (~33개, kend/seller 공유 DB라 seller 조율 필요). 전수점검 쿼리는 [error-handling-roadmap](todo/kend-error-handling-roadmap.md) 1-5. **정책 작성은 이 단계 전 개발기간에 선행**(켜면 createOrder 등 깨지므로 테스트 버퍼 필수)
+  - **인덱스** (P1-3 잔여): 주문 조회 인덱스 정의·마이그레이션
+  - **결제-주문 무결성 안전망** (2026-09-14, kend-seller 재고버그 리포트 후속, 당장 아님 → 여기로 이연):
+    1. `order_groups.status='failed'`인데 하위 `orders`가 `cancelled`로 안 넘어간 케이스를 15분 주기로 쓸어주는 보강 크론 — 지금은 알려진 3개 호출부(`failOrderGroup` 적용)만 막혀있고, 새 코드 경로가 같은 실수를 반복하면 3일 SLA 크론까지 재고가 묶임. `expire_pending_orders`와 같은 패턴, RPC 트랜잭션화까지 하면 더 견고(현재 `failOrderGroup`은 순차 update라 원자성 없음 — `applyCancellationToDb`와 동일한 기존 한계)
+    2. 결제 실패/취소 시 `payments`가 아닌 별도 로그 테이블(예: `payment_attempt_logs`, `payment_key` nullable)에 시도 기록 적재 — CS 대응·실패율 분석용. confirm 실패로 Toss 승인은 됐는데 confirm 안 된 케이스는 로그만으론 부족, **Toss 취소(void) API 호출까지 필요** (`toss-payments.md` "라이브 전환 시 처리해야 할 사항"과 동일 계열, 실키 전환 시점에 같이)
 - **참고**: [tosspayments-review-checklist.md](tosspayments-review-checklist.md)
 - **Sub-task**: (착수 시 추가)
+
+#### 🟡 P4-4. UX 기술부채 (신설)
+> Phase 3(판매자 관리보완)과 별개. kend/native 공통 UX 부채. 출시 블로커 아니지만 출시 전 처리 권장.
+
+- **데이터 신선도 / 캐싱 정책** — `makeCachedClientLoader` 영구캐시가 "스토어 목록 stale" 버그 유발 확인. 헬퍼 삭제 + 전 라우트 항상 신선 + 뒤로가기 잔상은 렌더링 레이어 + 앱 포그라운드(30초/30분) revalidation. **5-Phase 로드맵 확정, 미착수** → [data-freshness-caching-policy.md](todo/data-freshness-caching-policy.md)
+- **결제 앱스킴 처리** (kend-native) — Toss/카드사가 `intent://`·`supertoss://` 등으로 리다이렉트할 때 `Linking.openURL` 처리. 현재 iOS 카드사 인증은 뜨나 Android 앱카드에서 필요할 수 있음. 미착수
+- (장기) React Query 전환 — [client-rendering-plan.md](todo/client-rendering-plan.md). 위 캐싱 로드맵 Phase 6 = 이 전환. 출시 후
 
 ---
 
@@ -344,9 +355,10 @@
 
 ---
 
-## 주간 체크포인트 로그
+## 주간 체크포인트 로그 (2026-07-09에 중단)
 
-> 매주 금요일 진행 점검 결과 기록.
+> ⚠️ 이 로그는 **2026-07-09 이후 관리되지 않음** — 이후 진행상황은 위 "🔖 현재 상태" 노트와 각 Phase 섹션에서 추적한다.
+> 주간 로그 방식은 폐지. 아래는 초기 3개 체크포인트 히스토리로만 보존.
 
 ### 2026-04-24 (금) — 계획 수립
 - 로드맵 확정, 마일스톤 보드 생성
@@ -377,4 +389,4 @@
 
 ---
 
-*최종 업데이트: 2026-07-09*
+*최종 갱신: 2026-09-10 (readme 현행화 — stale 항목 정정, Phase 4 P4-4 신설, 주간로그 폐지)*
