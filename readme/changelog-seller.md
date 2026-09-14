@@ -8,6 +8,34 @@ KEND-SELLER 판매자 관리자 웹의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-09-14
+
+### [KEND-SELLER] 상품 수정 화면 추가 (Phase 3, B-1)
+
+- **`/products/:id` 상품 수정 신설**: 기본정보/상세정보/이미지/배송지/반품지 수정 가능
+- **옵션/SKU는 기존 값 수정·삭제는 잠금, 새 옵션값 추가만 허용**(축 추가는 불가) — 이미 팔린 SKU를 건드리면 기존 주문 데이터와 정합성이 깨지는 문제를 피하기 위해 순수 INSERT만 허용하는 방식으로 설계
+- **버그 수정 — 등록 시 `products.status` 레벨 불일치**: 상품등록 액션이 `products.status`를 안 넘겨 DB 기본값 `REGISTERED`로 생성되고 있었음(SKU는 이미 `PREPARE`로 명시). kend가 목록 쿼리에서 `status='REGISTERED'` 상품을 전부 제외하다 보니 신규 셀러 등록 상품이 kend에 안 보이는 원인이었음(coucou/SL0004 셀러 사례로 확인됨) — 등록 완료 시 `PREPARE`를 명시하도록 수정
+- **상품 상태 일괄변경에서 SKU 상태 cascade 제거**: 상품 상태와 SKU 상태를 별개 개념으로 분리(기존엔 상품을 SALE로 바꾸면 개별 STOP/SOLD_OUT SKU까지 강제로 SALE 처리되던 문제)
+- `PRODUCT_STATUS_OPTIONS`(REGISTERED 제외)/`SKU_STATUS_OPTIONS`(4개)로 상태값 노출 범위 제한
+- **상품/SKU 상태 모델 스펙 문서화** (`readme/todo/product-sku-status-model.md`): 상품 상태="팔 의도가 있는가", SKU 상태="지금 주문 가능한가"로 레벨 분리 정의. 탐색 화면은 `status===SALE && 구매가능 SKU 1개 이상`만 필터링, 구매내역/리뷰/찜 등 참조 화면은 상태 무관 항상 노출(구매 액션만 차단)이 원칙 — kend 쪽 노출 규칙 반영은 아직 미착수
+- kend가 정리한 Phase 3 잔여 항목 인계문서(`readme/todo/phase3-kend-seller-handoff.md`) 수신 — B-1(상품수정)은 이번 작업으로 완료, 나머지 B-2(재고관리)~B-7(리뷰관리) 항목 현황 정리
+- 실사용 클릭 테스트 완료
+
+## 2026-09-08
+
+### [KEND-SELLER] SKU 등록 시 options 필드가 저장 안 되던 버그 + 상세화면 크래시 방어
+
+- **버그 발견 경위**: 사용자 리포트 — 상품등록 후 상세보기 진입 시 "Objects are not valid as a React child" 크래시
+- **근본 원인**: 상품등록 액션이 SKU별 옵션값을 정규화 테이블(`product_options`)에만 넣고, 상세화면이 실제로 읽는 `product_stock_keepings.options`(jsonb)에는 넣지 않고 있었음 — 옵션을 몇 개 구성하든 저장된 SKU는 항상 `options=null`. `createProductStockKeepings` 호출부에 options 필드 추가, 뮤테이션 타입 시그니처도 갱신
+- **크래시 메커니즘**: `product-option-card.tsx`가 `options`가 비어있으면 옵션 그룹 컬럼의 sub-columns를 빈 배열로 생성 → tanstack-table이 이를 leaf 컬럼으로 취급해 DataGrid 기본 셀 렌더러가 options 객체를 그대로 자식으로 렌더링하려다 크래시
+- **방어 코드 추가**: 옵션 키가 하나도 없으면 "옵션" 그룹 컬럼 자체를 생략 — 기존에 이미 `options=null`로 잘못 저장된 레거시 데이터(PR00000021 등)도 더 이상 안 죽고 옵션 컬럼만 빠진 채로 정상 표시됨
+- 재현·수정 확인 완료
+
+### [KEND-SELLER] 상품등록 상세 카테고리 선택 안 되던 버그 수정
+
+- "상세 카테고리" Select가 값으로 제어되는 컨트롤드 컴포넌트인데 `onChange` 핸들러 자체가 빠져있어 클릭해도 상태가 전혀 안 바뀌었음(대분류 Select엔 `handleMainCategory`가 있었는데 상세 카테고리엔 대응 핸들러가 없었음) — `handleSubCategory` 추가해 연결
+- 재현·수정 확인 완료
+
 ## 2026-09-07
 
 ### [KEND-SELLER] Phase 3.5 정산 시스템 — 최종 완료 확인
