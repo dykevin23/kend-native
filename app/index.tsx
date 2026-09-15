@@ -1,5 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import * as Location from "expo-location";
 import { useRef, useState, useCallback } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import type { WebViewNavigation } from "react-native-webview";
+import type { WebViewNavigation, WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { useFocusEffect } from "expo-router";
 
@@ -56,6 +57,29 @@ const CUSTOM_USER_AGENT = Platform.select({
   android:
     "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
 });
+
+// --- 웹(kend) <-> 네이티브 브릿지 ---
+// 웹 -> 네이티브: window.ReactNativeWebView.postMessage(...) (onMessage로 균일하게 수신됨)
+// 네이티브 -> 웹: injectJavaScript로 웹이 설치해둔 전역 콜백을 직접 호출한다.
+// (WebView.postMessage로 응답하면 iOS는 window, Android는 document에 이벤트가
+// 떨어지는 플랫폼 차이가 있어, 이를 아예 피하기 위해 injectJavaScript를 사용)
+type BridgeRequest = {
+  type: string;
+  requestId: string;
+};
+
+const postBridgeResponse = (
+  webViewRef: React.RefObject<WebView | null>,
+  payload: Record<string, unknown>
+) => {
+  const script = `
+    window.__kendNativeBridge && window.__kendNativeBridge.receive(${JSON.stringify(
+      JSON.stringify(payload)
+    )});
+    true;
+  `;
+  webViewRef.current?.injectJavaScript(script);
+};
 
 // 뒤로가기 차단 URL 패턴 (readme/native-swipe-blacklist.md 참고)
 // 로그인/가입 플로우, 자녀 정보 입력 화면 — 뒤로가면 입력 유실
@@ -297,6 +321,53 @@ export default function Home() {
     webViewRef.current?.reload();
   };
 
+  // 현재 위치 요청 — 권한 요청 후 좌표를 웹으로 응답한다.
+  // 메시지 타입이 늘어날 것을 대비해 handleWebViewMessage에서 타입별로 분기한다.
+  const handleLocationRequest = async (requestId: string) => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        postBridgeResponse(webViewRef, {
+          type: "LOCATION_RESULT",
+          requestId,
+          error: "PERMISSION_DENIED",
+        });
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      postBridgeResponse(webViewRef, {
+        type: "LOCATION_RESULT",
+        requestId,
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      });
+    } catch {
+      postBridgeResponse(webViewRef, {
+        type: "LOCATION_RESULT",
+        requestId,
+        error: "LOCATION_UNAVAILABLE",
+      });
+    }
+  };
+
+  const handleWebViewMessage = (event: WebViewMessageEvent) => {
+    let message: BridgeRequest;
+    try {
+      message = JSON.parse(event.nativeEvent.data);
+    } catch {
+      return;
+    }
+    switch (message.type) {
+      case "REQUEST_LOCATION":
+        handleLocationRequest(message.requestId);
+        break;
+      default:
+        break;
+    }
+  };
+
   if (hasError) {
     return (
       <SafeAreaView style={styles.container}>
@@ -326,6 +397,7 @@ export default function Home() {
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
         onError={() => setHasError(true)}
+        onMessage={handleWebViewMessage}
         onHttpError={(syntheticEvent) => {
           const { statusCode } = syntheticEvent.nativeEvent;
           if (statusCode >= 500) setHasError(true);
