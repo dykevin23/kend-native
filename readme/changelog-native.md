@@ -7,6 +7,25 @@ KEND-NATIVE React Native WebView 앱의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-09-15
+
+### [KEND-NATIVE] 위치정보 네이티브 기능 추가 — expo-location 브릿지
+
+- **목적**: 웹(kend)이 사용자 현재 위치(위도/경도)를 가져와야 하는 화면(예: 배송지 찾기)에서, WebView 안에서는 브라우저 Geolocation API가 제한적이라 네이티브 위치 API를 브릿지로 노출
+- **웹→네이티브 요청**: 웹이 `window.ReactNativeWebView.postMessage(JSON.stringify({ type: "REQUEST_LOCATION", requestId }))`로 요청하면 `onMessage`(`handleWebViewMessage`)가 타입별로 분기, `REQUEST_LOCATION`을 처리
+- **권한 요청 → 좌표 응답**: `expo-location`의 `requestForegroundPermissionsAsync` → `getCurrentPositionAsync`(`Accuracy.Balanced`) 실행, 결과를 `LOCATION_RESULT`(`lat`/`lng`) 또는 에러(`PERMISSION_DENIED`/`LOCATION_UNAVAILABLE`)로 응답
+- **네이티브→웹 응답 경로**: `WebView.postMessage`는 iOS(`window`)/Android(`document`) 이벤트 위치가 갈라지는 플랫폼 차이가 있어, 대신 `injectJavaScript`로 웹이 설치해둔 전역 콜백(`window.__kendNativeBridge.receive`)을 직접 호출하는 방식 채택
+- **설정**: `app.json`에 iOS `NSLocationWhenInUseUsageDescription` 권한 문구 추가, `expo-location` config plugin 등록. `package.json`에 `expo-location` 의존성 추가
+- iOS 실기기 테스트 완료 — 정상 동작 확인. **Android는 아직 실기기 테스트 미수행**
+
+### [KEND-NATIVE] iOS buildNumber 23 / Android versionCode 21 빌드·배포
+
+- 위 위치정보 기능 포함해 EAS production 빌드(iOS·Android 둘 다 `autoIncrement`로 각각 23/21 부여)
+- iOS: App Store Connect 업로드 성공(TestFlight, Apple 처리 완료 후 실기기 테스트로 위치 기능 동작 확인)
+- Android: AAB(`https://expo.dev/artifacts/eas/2X7E4ZgOMmArwnSPrnQwyqoKToBYVBJKrtEqQ14GlBY.aab`)를 Play Console에 수동 업로드 예정 — 업로드 및 실기기 테스트 아직 미수행
+
+---
+
 ## 2026-09-11
 
 ### [KEND-NATIVE] iOS 카드앱(페이북/ISP) 결제 딥링크·팝업 핸드오프 수정
