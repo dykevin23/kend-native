@@ -7,6 +7,68 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-09-21
+
+### [KEND] 사람 팔로우 기능 잔재(`follows` 테이블) 정리, 스토어 찜 카운트 명명 정리
+
+- `follows` 테이블(2025-07 "user follow trigger" 커밋으로 만들어진 예전 중고거래 사람-to-사람 팔로우 기능의 잔재) + `profiles.stats` 컬럼을 실제 DB에서 drop. 관련 UI(`user-follow-page.tsx`)·트리거(`user_follow_trigger.sql`)는 KEND 피벗 시점(`destroy` 커밋)에 이미 삭제된 상태였고, 스키마에만 고아로 남아있던 것 — 리포 전체에 읽고 쓰는 코드 0건 확인 후 진행 (kend-seller도 미사용 확인)
+- 스토어 카드의 하트+숫자 UI(`followerCount`, 항상 `0` 하드코딩)는 이름 때문에 위 팔로우 기능의 잔재로 오인했으나, 실제 의도는 찜하기/조회수 집계였음을 확인 — UI는 유지하고 이름만 `likeCount`로 정리. 실제 집계(`store_likes` 기반)는 추후 구현 예정으로 TODO 명시
+
+### [KEND] 상품상세 타이틀 옆 별점/리뷰수 하드코딩 제거
+
+- 상품명 바로 아래에 "4.6 · 리뷰 (4,321)"이 모든 상품에 고정 표시되던 별도 하드코딩 블록 발견 — 09-07에 상품평점 섹션(하단, `ProductRatingSection`)과 샘플 리뷰는 실데이터로 교체했었지만, 타이틀 옆의 이 블록은 그때 놓쳤던 것으로 확인(그래서 리뷰 탭엔 "리뷰(0)"인데 타이틀 옆엔 "리뷰 (4,321)"로 모순되게 노출 중이었음)
+- 이미 로더에서 가져오던 `ratingSummary`로 교체. 리뷰 0개여도 숨기지 않고 `0`/`리뷰 (0)`으로 표기, 타이틀과 같은 줄 우측정렬로 레이아웃 조정
+
+---
+
+## 2026-09-17
+
+### [KEND] 공지사항 화면 구현 (Phase 3, B-5)
+
+- 그동안 `notices` 테이블 자체가 없어 `/myPage/notices`가 "등록된 공지사항이 없습니다" 고정 스텁이었던 것을 실제 조회 화면으로 구현 — kend-seller가 스키마+admin CRUD(`/system/notices`, 등록/노출토글/삭제)를 먼저 완료한 뒤 kend이 조회만 연결(문의하기 P2.5-4와 동일한 소유권 구조)
+- **선반영(테이블 생성 전 코드 작성)**: kend-seller 작업이 끝나기 전에 계약(테이블명 `notices`, 컬럼 `title`/`content`/`is_visible`/`created_at`)만 먼저 합의하고 kend 쪽 쿼리를 `(client as any)` 임시 캐스트로 먼저 작성 — kend-seller가 실제로 마이그레이션을 라이브 DB에 적용한 뒤 `npm run db:typegen` 재실행으로 캐스트 제거, 타입 정상화 확인
+- **중간에 스키마 변경 발생**: kend-seller가 `target` enum(`ALL`/`SELLER`/`BUYER`, 공지 대상 구분) 컬럼을 추가로 넣음 — kend 쪽 쿼리에 `target IN ('ALL','BUYER')` 필터를 추가해 판매자 전용 공지가 구매자 앱에 노출되지 않도록 반영
+- `getVisibleNotices` 쿼리(`is_visible=true` + `target` 필터, 최신순) 신설, 목록은 아코디언(`ui/accordion`)으로 표시. 페이지 제목이 "공지사항 및 FAQ"였는데 FAQ 기능은 없어 "공지사항"으로 정정
+- 아직 seller가 실 데이터를 넣지 않은 상태(의도적으로 빈 상태 확인용)라, 완료 처리는 사용자 확인 기준으로 함
+
+---
+
+## 2026-09-16
+
+### [KEND] 현재 위치로 찾은 주소에 배지 표시
+
+- 지도가 없어 GPS로 채워진 주소인지 가시성이 떨어진다는 피드백 반영 — 주소 입력 폼에 "현재 위치로 찾은 주소예요" 배지 표시. 우편번호를 직접 재검색하면 배지는 해제(수동 검색으로 전환됐다는 뜻이므로)
+
+---
+
+## 2026-09-15
+
+### [KEND] "현재 위치로 주소 찾기" 기능 — kend 웹↔네이티브 브릿지 + 역지오코딩, 실사용 테스트 통과
+
+- 그동안 미동작 버튼이었던 것(Phase 3 블록 항목)을 구현. `app/lib/native-bridge.ts`: `postMessage` 기반 네이티브 위치요청 클라이언트 — 타임아웃/권한거부/네이티브 아님을 에러로 구분해 각각 다른 안내(설정에서 권한 허용 / 앱에서만 이용 가능) 노출
+- `geocoding.server.ts` 신설: Kakao Local API 좌표→주소 변환(`.server.ts`로 `KAKAO_REST_API_KEY` 서버 전용 보호), `/users/addresses/reverse-geocode` 리소스 라우트로 노출
+- `address-manage-modal.tsx`의 빈 TODO였던 `handleFindByLocation` 구현, `address-add-modal.tsx`에 `initialAddress` prop 추가해 GPS 결과로 폼 prefill(신규추가 모드는 유지)
+- kend-native 쪽 위치 브릿지(expo-location, 네이티브→웹 메시지 전달)는 별도로 구현·연동 — 웹·네이티브 합쳐 전체 플로우 실사용 테스트 통과 확인
+- 후속으로 09-16 "현재 위치로 찾은 주소" 배지 UI 보강
+
+---
+
+## 2026-09-11
+
+### [KEND] 결제 실패 시 order_group만 failed로 바뀌고 orders는 방치되던 버그 수정 + 데이터 복구
+
+- `order_groups.status`를 `failed`로 바꾸는 것과 `orders.status`를 `cancelled`로 바꾸는 것은 별개 동작인데, 재고 복원 트리거(`handle_order_cancelled`)는 `orders.status`가 `cancelled`로 전이될 때만 발동 — 결제 실패 콜백 3곳(결제실패 페이지 1곳, 결제성공 페이지의 금액불일치·confirm실패 2곳) 전부 `order_groups`만 갱신해 하위 `orders`가 `pending`에 영구 방치되고 재고도 계속 깎인 채로 남는 버그였음(3일 뒤 SLA 크론이 결국 정리하긴 하나 그동안 유령 재고 손실)
+- kend-seller 쪽 재고 불일치 리포트(2026-09-11)로 발견. `expire_pending_orders` 크론이 이미 쓰던 "order_groups.failed + orders.cancelled 동시 처리" 패턴을 `failOrderGroup()` 공유 헬퍼로 추출해 3개 호출부 전부 교체
+- **데이터 복구**: 이 버그로 묶여있던 실제 주문 7건의 `orders.status`를 `cancelled`로 전이시켜 재고 복원 확인(sku-197 0→1, sku-212 8→10, sku-217 7→10, sku-220 9→10). `order_groups`는 `failed`로 유지(정상)
+- 후속 안전망 2건(신규 코드 경로 재발 대비 보강 크론, 결제 실패 로그+Toss void 처리)은 당장 급하지 않아 Phase 4(P4-3)로 이연 — [kend-milestones.md P4-3](./kend-milestones.md) 참고
+
+### [KEND] 사업장 소재지 정정, 인트로 페이지 APK 링크 갱신
+
+- 사업장 소재지를 사업자등록증 기재대로 정정(B동 5층 누락분 추가)
+- `/intro` APK 다운로드 링크를 BC카드 ISP 인증창 팝업 미지원·커스텀 URL 스킴 핸드오프 수정이 반영된 kend-native preview 빌드(versionCode 20)로 갱신 — Toss 결제경로 PPT 제출용
+
+---
+
 ## 2026-09-14
 
 ### [KEND] 상품/SKU 상태 모델 재정의 반영 — 실사용 테스트 통과
