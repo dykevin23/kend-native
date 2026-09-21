@@ -9,6 +9,13 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ## 2026-09-21
 
+### [KEND] "최근 본 상품" 기능 구현 (Phase 3) — 실사용 테스트 통과
+
+- `product_views` 테이블 신규(user_id+product_id 복합키 + `viewed_at`) — `product_likes`/`store_likes`와 동일 패턴으로, 매 조회를 남기는 로그가 아니라 상품당 마지막 조회 시점만 upsert. `entity_status_history`(주문 상태 감사이력) 같은 append 로그 구조는 이 기능엔 맞지 않다고 판단해 배제
+- **prefetch 버그 발견·수정**: 조회 기록을 처음엔 상품상세 loader에 넣었는데, 실사용 테스트 중 "상품 1개만 열었는데 2개가 최근본상품에 잡힌다"는 제보로 `ProductCard`의 `prefetch="intent"`(카드에 호버/터치만 해도 loader가 미리 실행됨) 때문에 스크롤 중 스친 카드까지 "본 것"으로 기록되는 버그를 발견 — 기록 로직을 loader에서 빼서 컴포넌트가 실제로 마운트된 뒤에만 실행되는 별도 액션(`intent: "recordView"`)으로 분리해 해결
+- `getRecentlyViewedProducts` 신설(최근 20개, `viewed_at desc`) — 참조 화면 원칙(09-14 정의: "참조에서는 절대 사라지지 않는다") 그대로 적용해 품절/판매중지 상품도 숨기지 않고 가격은 폴백 표시(`getLikedProducts`와 동일 패턴)
+- `recent-products-page.tsx`의 "최근 본 상품이 없습니다" 고정 스텁을 실제 목록으로 교체 — 찜 목록의 `LikeProductCard` 재사용(item prop 타입을 `Pick<LikedProduct, "product"|"seller">`로 완화)
+
 ### [KEND] 사람 팔로우 기능 잔재(`follows` 테이블) 정리, 스토어 찜 카운트 명명 정리
 
 - `follows` 테이블(2025-07 "user follow trigger" 커밋으로 만들어진 예전 중고거래 사람-to-사람 팔로우 기능의 잔재) + `profiles.stats` 컬럼을 실제 DB에서 drop. 관련 UI(`user-follow-page.tsx`)·트리거(`user_follow_trigger.sql`)는 KEND 피벗 시점(`destroy` 커밋)에 이미 삭제된 상태였고, 스키마에만 고아로 남아있던 것 — 리포 전체에 읽고 쓰는 코드 0건 확인 후 진행 (kend-seller도 미사용 확인)
