@@ -1,9 +1,8 @@
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Location from "expo-location";
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
-  ActivityIndicator,
   Alert,
   BackHandler,
   Linking,
@@ -13,6 +12,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import type { WebViewNavigation, WebViewMessageEvent } from "react-native-webview";
@@ -126,6 +134,78 @@ const isFormFlowUrl = (url: string): boolean => {
 const isBackBlocked = (url: string): boolean =>
   isPaymentFlowUrl(url) || isFormFlowUrl(url);
 
+// 로딩 오버레이 — 점 3개가 번갈아 튀어오르는 인디케이터 (오렌지 포인트 컬러)
+function LoadingDot({ delay }: { delay: number }) {
+  const translateY = useSharedValue(0);
+
+  useEffect(() => {
+    translateY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(-6, { duration: 300, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 300, easing: Easing.in(Easing.quad) })
+        ),
+        -1
+      )
+    );
+  }, [delay, translateY]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  return <Animated.View style={[styles.dot, dotStyle]} />;
+}
+
+function LoadingDots() {
+  return (
+    <View style={styles.dotsRow}>
+      <LoadingDot delay={0} />
+      <LoadingDot delay={120} />
+      <LoadingDot delay={240} />
+    </View>
+  );
+}
+
+// 첫 실행 로딩 오버레이 — 네이티브 스플래시(정적 이미지)가 숨겨진 직후
+// WebView 첫 로드가 끝날 때까지 보여주는 브랜드 로딩 화면.
+// 스플래시와 같은 배경색(#FFEED0)이라 전환이 끊기지 않고, 로고가 살짝
+// 커지며 나타난 뒤 점 로딩 인디케이터가 돈다.
+function FirstLoadOverlay() {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.92);
+
+  useEffect(() => {
+    opacity.value = withTiming(1, {
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
+    });
+    scale.value = withTiming(1, {
+      duration: 450,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [opacity, scale]);
+
+  const logoStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <>
+      <Animated.View style={[styles.brandLogoBlock, logoStyle]}>
+        <Text style={styles.brandWordmark}>KEND</Text>
+        <View style={styles.brandUnderline} />
+        <Text style={styles.brandTagline}>Kids are an ENDuser</Text>
+      </Animated.View>
+      <View style={styles.brandDotsWrap}>
+        <LoadingDots />
+      </View>
+    </>
+  );
+}
+
 export default function Home() {
   const webViewRef = useRef<WebView>(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -143,6 +223,13 @@ export default function Home() {
   // (?payment_cancelled 등)를 제거한 뒤에도 유지되어야 해서 별도 ref로 추적.
   const justReturnedFromPaymentRef = useRef(false);
   const paymentReturnPathRef = useRef("");
+
+  // 네이티브 스플래시(정적 이미지)는 마운트 직후 바로 내린다 — 이 시점부터는
+  // 같은 배경색의 브랜드 로딩 오버레이(FirstLoadOverlay)가 이어받아 WebView
+  // 첫 로드가 끝날 때까지 "로딩 중" 인터랙션을 보여준다.
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
   // 안드로이드 하드웨어 뒤로가기 버튼 처리
   useFocusEffect(
@@ -310,7 +397,6 @@ export default function Home() {
     }
     setIsLoading(false);
     if (isFirstLoad) {
-      SplashScreen.hideAsync();
       setIsFirstLoad(false);
     }
   };
@@ -419,9 +505,9 @@ export default function Home() {
         // 보안
         originWhitelist={["https://*"]}
       />
-      {isLoading && !isFirstLoad && (
+      {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#163756" />
+          {isFirstLoad ? <FirstLoadOverlay /> : <LoadingDots />}
         </View>
       )}
     </SafeAreaView>
@@ -441,6 +527,45 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#FFEED0",
+  },
+  brandLogoBlock: {
+    alignItems: "center",
+  },
+  brandWordmark: {
+    fontSize: 56,
+    fontWeight: "800",
+    fontStyle: "italic",
+    color: "#1A3F66",
+    letterSpacing: -1,
+  },
+  brandUnderline: {
+    width: 130,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "#FF8A1F",
+    marginTop: 10,
+  },
+  brandTagline: {
+    fontSize: 11,
+    fontWeight: "500",
+    letterSpacing: 1.2,
+    color: "#454B56",
+    textTransform: "uppercase",
+    marginTop: 10,
+  },
+  brandDotsWrap: {
+    marginTop: 32,
+  },
+  dotsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FF8A1F",
   },
   errorContainer: {
     flex: 1,
