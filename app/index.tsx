@@ -341,13 +341,12 @@ export default function Home() {
     // 카드앱 등 커스텀 URL 스킴(paybooc://, ispmobile:// 등) 핸드오프.
     // iOS WKWebView는 http(s)가 아닌 스킴을 OS로 자동 위임하지 않으므로,
     // 직접 Linking으로 열고 WebView 자체 네비게이션은 막는다.
+    // canOpenURL은 LSApplicationQueriesSchemes에 없는 스킴(미등록 카드앱,
+    // 미설치 시 폴백인 itms-apps:// 등)을 false로 막으므로 거치지 않고 바로 연다.
+    // 실패(앱 미설치)는 조용히 무시 — 토스/카드사 페이지가 자체 폴백을 처리한다.
     const isHttpUrl = /^https?:\/\//i.test(request.url ?? "");
     if (!isHttpUrl && request.url) {
-      Linking.canOpenURL(request.url)
-        .then((supported) => {
-          if (supported) return Linking.openURL(request.url);
-        })
-        .catch(() => {});
+      Linking.openURL(request.url).catch(() => {});
       return false;
     }
 
