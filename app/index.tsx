@@ -1,4 +1,5 @@
 import { StatusBar } from "expo-status-bar";
+import Constants from "expo-constants";
 import * as SplashScreen from "expo-splash-screen";
 import * as Location from "expo-location";
 import { useRef, useState, useCallback, useEffect } from "react";
@@ -27,8 +28,11 @@ import type { WebViewNavigation, WebViewMessageEvent } from "react-native-webvie
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { useFocusEffect } from "expo-router";
 
-const WEB_APP_URL = "https://kend-seven.vercel.app";
-const KEND_HOST = "kend-seven.vercel.app";
+// 운영/개발 앱마다 다른 웹 주소 — app.config.ts가 빌드 프로필(APP_VARIANT)에 따라 넣는다
+const WEB_APP_URL: string =
+  Constants.expoConfig?.extra?.webAppUrl ?? "https://kend.co.kr";
+// 이 호스트면 앱 안(WebView)에서 열고, 아니면 외부 도메인(결제·소셜로그인 등)으로 본다
+const KEND_HOST = new URL(WEB_APP_URL).hostname;
 
 const isKendUrl = (url: string): boolean => {
   try {
