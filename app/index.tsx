@@ -2,6 +2,8 @@ import { StatusBar } from "expo-status-bar";
 import Constants from "expo-constants";
 import * as SplashScreen from "expo-splash-screen";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+import { getPushState, notificationPath } from "@/lib/push";
 import { useRef, useState, useCallback, useEffect } from "react";
 import {
   Alert,
@@ -228,6 +230,34 @@ export default function Home() {
   const justReturnedFromPaymentRef = useRef(false);
   const paymentReturnPathRef = useRef("");
 
+  // 푸시 알림 탭 → 알림의 data.url(앱 내 경로)을 WebView에서 연다.
+  // 앱이 꺼져 있다가 알림으로 켜진 경우 첫 로드가 끝난 뒤에 이동해야 해서 대기 경로를 둔다.
+  const lastNotificationResponse = Notifications.useLastNotificationResponse();
+  const pendingPushPathRef = useRef<string | null>(null);
+  const handledResponseIdRef = useRef<string | null>(null);
+
+  const openWebPath = useCallback((path: string) => {
+    webViewRef.current?.injectJavaScript(
+      `window.location.assign(${JSON.stringify(WEB_APP_URL + path)}); true;`
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!lastNotificationResponse) return;
+    const id = lastNotificationResponse.notification.request.identifier;
+    if (handledResponseIdRef.current === id) return;
+    handledResponseIdRef.current = id;
+    Notifications.clearLastNotificationResponse();
+
+    const path = notificationPath(lastNotificationResponse);
+    if (!path) return;
+    if (isFirstLoad) {
+      pendingPushPathRef.current = path;
+    } else {
+      openWebPath(path);
+    }
+  }, [lastNotificationResponse, isFirstLoad, openWebPath]);
+
   // 네이티브 스플래시(정적 이미지)는 마운트 직후 바로 내린다 — 이 시점부터는
   // 같은 배경색의 브랜드 로딩 오버레이(FirstLoadOverlay)가 이어받아 WebView
   // 첫 로드가 끝날 때까지 "로딩 중" 인터랙션을 보여준다.
@@ -401,6 +431,11 @@ export default function Home() {
     setIsLoading(false);
     if (isFirstLoad) {
       setIsFirstLoad(false);
+      // 알림으로 앱이 켜진 경우: 첫 화면 로드 후 알림 화면으로 이동
+      if (pendingPushPathRef.current) {
+        openWebPath(pendingPushPathRef.current);
+        pendingPushPathRef.current = null;
+      }
     }
   };
 
@@ -441,6 +476,34 @@ export default function Home() {
     }
   };
 
+  // 푸시 권한 상태 / 권한 요청 — 결과(status·token·platform)를 웹으로 응답한다.
+  // 토큰 저장은 웹이 사용자 세션으로 한다 (kend app/features/notifications/push.ts)
+  const handlePushRequest = async (requestId: string, request: boolean) => {
+    try {
+      const state = await getPushState(request);
+      postBridgeResponse(webViewRef, { type: "PUSH_STATE", requestId, ...state });
+    } catch {
+      postBridgeResponse(webViewRef, {
+        type: "PUSH_STATE",
+        requestId,
+        error: "PUSH_UNAVAILABLE",
+      });
+    }
+  };
+
+  const handleOpenSettings = async (requestId: string) => {
+    try {
+      await Linking.openSettings();
+      postBridgeResponse(webViewRef, { type: "OPEN_APP_SETTINGS", requestId, ok: true });
+    } catch {
+      postBridgeResponse(webViewRef, {
+        type: "OPEN_APP_SETTINGS",
+        requestId,
+        error: "SETTINGS_UNAVAILABLE",
+      });
+    }
+  };
+
   const handleWebViewMessage = (event: WebViewMessageEvent) => {
     let message: BridgeRequest;
     try {
@@ -451,6 +514,15 @@ export default function Home() {
     switch (message.type) {
       case "REQUEST_LOCATION":
         handleLocationRequest(message.requestId);
+        break;
+      case "GET_PUSH_STATUS":
+        handlePushRequest(message.requestId, false);
+        break;
+      case "REQUEST_PUSH_PERMISSION":
+        handlePushRequest(message.requestId, true);
+        break;
+      case "OPEN_APP_SETTINGS":
+        handleOpenSettings(message.requestId);
         break;
       default:
         break;
