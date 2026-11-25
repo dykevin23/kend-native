@@ -439,6 +439,14 @@ export default function Home() {
     }
   };
 
+  // 오래 백그라운드에 있으면 OS가 메모리 확보를 위해 WebView의 웹 화면 프로세스를 종료한다.
+  // 앱은 살아 있어 다시 들어오면 흰 화면만 남으므로, 종료 신호를 받으면 보던 화면을 다시 불러온다.
+  // (iOS: onContentProcessDidTerminate / Android: onRenderProcessGone — 처리 안 하면 앱이 종료됨)
+  const handleWebProcessGone = () => {
+    setIsLoading(true);
+    webViewRef.current?.reload();
+  };
+
   const handleRetry = () => {
     setHasError(false);
     setIsLoading(true);
@@ -559,6 +567,8 @@ export default function Home() {
         onLoadEnd={handleLoadEnd}
         onError={() => setHasError(true)}
         onMessage={handleWebViewMessage}
+        onContentProcessDidTerminate={handleWebProcessGone}
+        onRenderProcessGone={handleWebProcessGone}
         onHttpError={(syntheticEvent) => {
           const { statusCode } = syntheticEvent.nativeEvent;
           if (statusCode >= 500) setHasError(true);
