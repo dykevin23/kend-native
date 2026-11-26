@@ -8,6 +8,37 @@ KEND-SELLER 판매자 관리자 웹의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-11-18
+
+### [KEND-SELLER] 우편번호 검색 스크립트 CDN 전환 (daumcdn → kakaocdn)
+
+- Daum 우편번호 서비스가 2026-11-30부로 `t1.daumcdn.net` 스크립트 제공을 종료할 예정이라, `daum-post-code-modal.tsx`가 로드하는 스크립트 URL을 `t1.kakaocdn.net`으로 전환
+
+## 2026-11-11
+
+### [KEND-SELLER] 시간대(KST) 표시 버그 3건 수정
+
+- **근본원인**: DB(`TimeZone=UTC`)에 시간 컬럼이 timezone 없는 `timestamp`로 저장돼 있었는데, 앱(luxon `defaultZone=Asia/Seoul`)이 오프셋 없는 UTC 문자열을 한국시간으로 잘못 해석해 실제보다 9시간 이르게 표시되던 문제
+- **DB 레벨 수정**: 시간 컬럼 전체를 `timestamptz`로 통일(`timestamp({ withTimezone: true })`), 마이그레이션은 `USING col AT TIME ZONE 'UTC'`로 기존 값을 보존하며 변환. kend와 drizzle 마이그레이션 기록 테이블을 공유하므로 kend 적용 후 seller 적용하는 순서로 진행. `seller_information_view`가 `admin_sellers` 시간 컬럼을 참조해 마이그레이션 앞뒤로 뷰 DROP/CREATE 필요
+- **날짜 표시 버그**: UTC 문자열 앞 10자리만 잘라 날짜로 쓰던 곳들이 0~9시(KST) 데이터를 하루 전으로 표시 — `formatKstDate`(timeZone 지정) 추가해 목록·상세 24곳 교체
+- **대시보드 매출 집계 버그**: 서버(UTC)에서 `Date`의 `getDate`/`setHours`/`toISOString`으로 날짜 경계를 잡다 보니 "오늘"이 KST 오전 9시에 시작돼 0~9시 주문이 전날·전달 매출로 집계됨 — `kst-date.ts`(`toKstDateKey`/`kstDayStartIso`/`addKstDays`)로 날짜 키·조회범위를 KST 기준으로 재계산
+- 사소한 정리: `.gitignore`에 `.vercel` 추가(vercel link 시 생기는 로컬 설정 제외)
+
+## 2026-11-05
+
+### [KEND-SELLER] Supabase 새 API 키 체계 전환
+
+- 환경변수 이름 변경: `*_ANON_KEY` → `*_PUBLISHABLE_KEY` (kend와 규칙 통일)
+- `sync-tracking` 엣지함수가 `apikey` 헤더에 legacy anon 키까지 허용하던 걸 secret 키로만 실행되도록 좁히고, legacy `SUPABASE_SERVICE_ROLE_KEY` 대신 새로 검사한 secret 키 사용. `config.toml`에 `verify_jwt=false` 명시
+- 크론 재등록 마이그레이션: `Bearer` legacy JWT → `apikey` 헤더, dev URL 하드코딩 제거하고 Vault의 `project_url` 참조로 전환(dev/prod가 각자 자기 함수를 호출하도록)
+- `.gitignore`에 `.env.*`, `supabase/.temp/` 추가
+
+## 2026-09-28
+
+### [KEND-SELLER] 스마트택배 조회 API GET→POST 전환
+
+- SweetTracker가 2026-10-30 14시부로 GET 방식 지원을 종료할 예정이라, `sync-tracking` 엣지함수의 `trackingInfo` 호출을 POST + form-urlencoded body로 변경
+
 ## 2026-09-21
 
 ### [KEND-SELLER] CS관리(B-4) 실사용 테스트 통과 — 문의/리뷰 관리 날짜 필터 즉시조회 버그 수정 포함

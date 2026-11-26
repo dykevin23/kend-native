@@ -7,6 +7,172 @@ KEND 웹앱(React Router SSR + WebView)의 주요 변경사항을 날짜별로 �
 
 ---
 
+## 2026-11-25
+
+### [KEND] 앱 푸시 알림 운영 적용 — TestFlight 빌드 28 수신 확인
+
+- 운영 DB에 알림 테이블(마이그레이션 0035)·트리거 SQL(`notifications.sql`)·재시도 크론 적용, Edge Function `send-push` 운영 배포 → master 머지(`3911145`까지)로 운영 웹 반영. 적용 순서는 DB → 웹(웹이 먼저 올라가면 없는 테이블을 읽어 오류)
+- 운영 검증: 운영 Vault 키로 DB → `send-push` 실제 호출 200, 운영 사용자로 알림 적재 → 발송 호출 예약 확인 후 롤백. 운영에 주문·문의 데이터가 아직 없어 주문 상태 트리거는 **dev와 함수 코드 md5 비교로 동일성 확인**(실주문 시 재확인 필요)
+- kend-native 운영 빌드 28(TestFlight)에서 테스트 푸시 2건 수신 — 앱 켜짐(배너)·완전 종료 상태 모두 수신, 탭하면 알림함으로 이동 확인 ✅. 테스트 알림은 운영 DB에서 삭제
+
+### [KEND] 알림 권한 요청 방식 변경 — 첫 실행 1회 팝업 + 꺼져 있으면 상황별 안내 카드
+
+- 첫 실행(로그인 상태) 1회 iOS 권한 팝업(로그인·결제 진행 중 제외). 이후엔 알림이 꺼져 있으면 **상황별 카드**: 결제 직후 주문 목록("배송 소식을 알림으로 받아보세요"), 답변 대기 중 문의 상세("답변이 등록되면 알려드릴게요") — 미결정이면 팝업, 거부면 설정 앱. 닫기는 이번만 숨김
+- 버그 수정: 설정 앱에서 알림을 켜고 돌아오면 화면만 "켜짐"이고 **기기 토큰은 등록되지 않던 문제** — 토큰 등록이 앱 실행당 1회뿐이었음. 앱이 다시 보일 때마다 권한 재확인 후 등록
+- 구현됨(development, 테스트 대기) — 운영 머지 전
+
+### [KEND] 주문 상세·목록 UI 다듬기
+
+- 작은 테두리 버튼(Button outline + xs/sm): 남색 1.5px → 연회색 1px·진회색 글자 — 목록 안 버튼이 여러 개 모이면 무거워 보이던 문제. 버튼 공통 규칙이라 전 화면 일관 적용, 큰 outline은 그대로
+- 주문 상세 "문의하기": 상품마다 넣었던 버튼(11-24)을 판매자 이름 줄 오른쪽 "문의하기 >" 링크로 이동(상품 1개면 상품까지, 여러 개면 주문만 선택된 채로 문의 화면). 상품 아래 버튼 줄은 원래대로
+- 문의 상세 하단 "목록으로" 제거 — 알림에서 들어와도 항상 문의 목록으로 가던 문제. 헤더 뒤로가기가 온 곳으로 돌아감
+- 주문 상세 타임라인이 판매자 확인 전 취소 건에서 **빈 회색 상자**로 보이던 문제 — 시각이 있는 단계만 그려서 생긴 것. 취소면 "주문취소 · 취소 완료", 확인 전이면 "판매자확인 · 확인 대기 중" 표시(취소 시각은 DB 컬럼이 없어 상태로만)
+- 개발 서버·Kend Dev 사용자 확인 ✅
+
+---
+
+## 2026-11-24
+
+### [KEND] 당겨서 새로고침·화면 이동 중 조작 차단·주문 상세 문의하기·알림 기기 설정 버튼
+
+- **당겨서 새로고침**: native `pullToRefreshEnabled`는 우리 화면이 페이지가 아니라 안쪽 영역이 스크롤되는 구조라 동작하지 않고 페이지 전체 리로드라 느려 **웹에서 구현**(`Content pullToRefresh`, 현재 화면 loader만 revalidate). 다른 사람이 내용을 바꾸는 단순 목록 5곳만 — 알림함·주문/배송·문의 내역·공지사항·스토어. 편집 화면(장바구니·배송지)·내가 바꾸는 목록(좋아요·최근 본 상품·내 리뷰)은 제외
+- **화면 이동 중 조작 차단**: 이동 중 이전 화면이 그대로 눌리던 문제 — 0.2초 넘으면 투명 막(터치 차단)+흐리게, 1초 넘으면 로딩 점. 빠른 이동에선 표시 없음(번쩍임 방지)
+- 주문 상세 상품별 "문의하기" → 문의 작성 화면에 주문·상품이 선택된 채로 열림(`?orderGroupId=&orderItemId=`, 내 주문 목록에 있는 값만 반영)
+- 알림 설정: 허용 상태에서도 "기기 설정" 버튼으로 설정 앱 이동(끄는 방법이 없던 문제)
+- Kend Dev 사용자 확인 ✅
+
+---
+
+## 2026-11-20
+
+### [KEND] 앱 푸시 알림 1·2단계 — 알림 테이블·트리거·발송 함수 + 알림함·알림 설정 (dev)
+
+- 배경: 마이페이지 "알림 설정"이 스위치만 있고 발송 기능이 없는 placeholder(Apple 2.1/5.6 리젝 위험) → 실제 앱 푸시로 구현. 알림톡은 비즈채널·템플릿 심사·전화번호 수집이 필요해 이후로
+- **DB(마이그레이션 0035)**: `push_tokens`·`notification_settings`·`notifications`(발송 대기열 겸 알림함) — 처음부터 **RLS 본인 행만**(알림 본문에 주문 정보가 있어서)
+- **트리거**(`app/sql/triggers/notifications.sql`): 주문 완료·취소·환불(전체/일부)·발송·배송 완료·반품 승인·문의 답변 7종. `entity_status_history`와 같은 DB 트리거 패턴이라 kend·seller·크론 어디서 상태가 바뀌어도 잡힘(seller 코드 변경 없음). 결제 포기(`failed`)는 알림 없음. **알림 오류가 주문·취소를 실패시키지 않도록 모든 트리거 예외 처리**
+- **발송**: insert → pg_net → Edge Function `send-push` → Expo Push API. `claim_pending_notifications`(SKIP LOCKED)로 중복 발송 방지, `DeviceNotRegistered` 토큰 자동 삭제, 5분 재시도 크론(3회, 24시간 지나면 failed). 처리 중 멈춤 판단은 생성 시각이 아니라 `claimed_at` 기준(재시도 중 중복 발송 방지)
+- 기기 토큰 등록/해제 RPC(SECURITY DEFINER) — 같은 기기에서 계정을 바꾸면 소유자 이동
+- **웹**: 알림함 `/notifications`(90일, 읽음·모두 읽음), 탭 헤더 종 아이콘(안 읽음 점), 알림 설정 DB 저장("활동 알림" 삭제, 혜택/이벤트는 광고성 동의 기록과 함께 2차), 결제 직후 "알림 받기" 카드, 로그아웃 직전 이 기기 토큰 해제
+- 네이티브 브릿지 범용화 + `GET_PUSH_STATUS`·`REQUEST_PUSH_PERMISSION`·`OPEN_APP_SETTINGS` (kend-native 짝 변경은 changelog-native)
+- dev 테스트: 트리거 7종 롤백 테스트, 설정 끔 → skipped, 가짜 토큰 → 토큰 삭제, 인증 없는 호출 401, RLS(남의 알림·설정 차단, 계정 전환 시 토큰 이동) ✅ / Kend Dev 실기기 수신·탭 이동은 11-24 확인 ✅
+- 계획: [push-notification-plan.md](./active/push-notification-plan.md)
+
+---
+
+## 2026-11-19
+
+### [KEND] 공개 홈페이지(`/`)·공개 고객지원(`/support`) + 앱 접속 판별
+
+- `kend.co.kr`(`/`)을 공개 홈페이지로 — 브라우저는 서비스 소개·App Store(출시 예정)·개인정보처리방침·약관·환불정책·고객지원 링크·사업자 정보, 앱·로그인 사용자는 `/stores`. Google OAuth 브랜딩 인증의 홈페이지 요건(로그인 없이 열림·앱 이름·처리방침 링크) 충족 목적
+- `/intro` → `/` 영구 이동("준비 중"·예전 테스트 APK 링크 제거), `/support`는 App Store 지원 URL용 공개 페이지(마이페이지 고객지원과 본문 공유)
+- **앱 판별**: native가 Google 로그인 차단 회피용으로 일반 Safari User-Agent를 써서 서버가 앱을 구분 못 함 → root `<head>` 스크립트가 `window.ReactNativeWebView`를 보고 `kend_client=app` 쿠키를 남김. **native 수정 없이 기존 빌드에서도 동작**(Kend Dev·빌드 27 확인). PC·모바일 브라우저 차단은 2단계(운영에서만, 미착수)
+- 버그 수정: 만료된 세션 쿠키가 남은 브라우저가 공개 페이지를 열자마자 로그인으로 튕기던 문제 — `useAuthListener`가 `/auth` 외 전 경로에서 이동시켰음. 공개 경로 목록(`isPublicPath`)을 root loader와 공유
+- 고객지원·개인정보처리방침 연락 이메일 → `aidenotionsupport@gmail.com`(처리방침 전체 정리는 출시 전 약관 DB 버전 관리 때)
+- 운영 배포·확인 ✅ / Google 브랜딩 제출은 보류 — 승인된 도메인에 `*.supabase.co`가 있어 소유권 확인 불가 → prod Pro 전환 + 커스텀 도메인 때 함께
+- 계획: [web-access-policy.md](./active/web-access-policy.md)
+
+---
+
+## 2026-11-18
+
+### [KEND] 우편번호 검색 스크립트 주소 변경
+
+- `t1.daumcdn.net`이 2026-11-30 종료 예정이라 `t1.kakaocdn.net`으로 교체
+
+---
+
+## 2026-11-13
+
+### [KEND] 프로필 수정 화면에 이름·로그인 계정(이메일) 읽기 전용 표시
+
+- 네이버 로그인 검수에서 제공정보(이름·이메일) 활용처가 필요해 추가. 네이버 검수 승인됨
+
+---
+
+## 2026-11-12
+
+### [KEND] 홈 OAuth `?code=` 임시 처리 제거, 반품환불 크론 Vault 전환
+
+- Supabase 프로젝트가 하나라 OAuth가 Site URL(`/?code=`)로 떨어지던 시절의 우회책 제거 — 이제 서버별 `redirectTo` + 허용 목록으로 각자 복귀(로컬·개발 서버·운영 소셜 로그인 5종 확인)
+- `schedule_process_returns.sql`: 평문 플레이스홀더 대신 Vault `kend_app_url`·`cron_secret` 사용(seller sync-tracking 크론과 같은 방식). 운영 등록·호출 200 확인
+
+---
+
+## 2026-11-11
+
+### [KEND] 시간 컬럼 timestamptz 통일 — 화면에서 9시간 어긋나던 문제
+
+- DB(UTC)에 `now()`로 저장되지만 `timestamp without time zone`이라 오프셋 없이 내려가, 앱(luxon Asia/Seoul)이 한국 시간으로 해석해 9시간 이르게 표시됐음. 데이터에 +9시간을 더하는 방식은 원인을 남기므로 배제
+- 스키마 `timestamp({ withTimezone: true })` + 마이그레이션 0034(`USING col AT TIME ZONE 'UTC'`로 값 보존). **적용 순서 kend → seller**(drizzle 기록 테이블 공유). seller는 KST 날짜 키·집계 경계 별도 수정(changelog-seller)
+- dev·prod 적용, 화면 시간 사용자 확인 ✅
+
+### [KEND] 환경 분리 — 도메인·Vercel 환경변수·운영 전환
+
+- 도메인 `kend.co.kr`·`seller.kend.co.kr`(가비아, SSL), Vercel Preview(=development 브랜치 개발 서버, dev DB·Toss 테스트 키) / Production(=master, prod DB·**Toss 라이브 키**) 분리, master 머지로 운영 전환
+- 소셜 로그인 5종 운영 콜백 설정·확인(카카오 KOE006은 콘솔 Redirect URI 누락 → 추가). Apple client secret 재발급(만료 2027-05-09)
+- 계획: [environment-separation-plan.md](./active/environment-separation-plan.md)
+
+---
+
+## 2026-11-10
+
+### [KEND] 네이버 로그인 복귀 주소를 호출한 서버 기준으로
+
+- 함수 시크릿 `SITE_URL` 하나로 복귀 주소가 고정돼 로컬/앱 중 한쪽 로그인이 다른 주소로 튕기던 문제 — kend 서버가 자기 `REDIRECT_LOGIN_URL` 기준 주소를 넘기고 함수는 형식 검사 후 사용. 최종 허용은 Supabase Auth Redirect URLs
+
+---
+
+## 2026-11-05
+
+### [KEND] Supabase dev/prod 분리 착수 — 새 API 키 전환 + 네이버 로그인 함수 보안 수정
+
+- prod Supabase(`kend-prod`, Seoul) 생성 + 스키마·drizzle 기록·Storage 버킷/정책 복제·대조(11-04), Edge Function·크론·Vault prod 구성(11-09)
+- **보안 수정**: `create-naver-user`가 body의 email을 그대로 믿어 공개키만으로 남의 계정 magic link를 받을 수 있었음 → secret 키(`apikey`)만 호출 허용, 네이버 토큰으로 프로필을 직접 조회해 그 id·이메일만 사용. 이메일 미제공 계정 링크 발급 실패도 수정
+- 새 API 키(`sb_publishable_`/`sb_secret_`) 전환, 환경변수 이름 `*_ANON_KEY` → `*_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SECRET_KEY`. supabase-js 2.118 / ssr 0.12(강화된 update 타입 대응)
+- 진행 중 비밀값(prod 레거시 키, dev secret 키, DB 비밀번호) 출력 사고 → 레거시 키 비활성화·키 교체·DB 비밀번호 교체로 조치
+
+---
+
+## 2026-11-03
+
+### [KEND] 마이페이지 사업자 정보가 하단 탭바에 가려지던 문제
+
+- 탭바 회피 여백이 푸터 위에 있어 푸터가 탭바 밑에 깔렸음 → 여백을 푸터 아래로 + `safe-area-inset-bottom` 반영
+
+---
+
+## 2026-10-23
+
+### [KEND] 디자인 리뉴얼 마무리 — 인증 화면·결제모달·이미지 대체
+
+- 로그인·회원가입·비밀번호 찾기/재설정: 공통 `AuthLayout`(크림 배경 + 로고 + 약관 링크), 분리된 둥근 입력칸, 원형 소셜 버튼. 흰 카드는 크림 배경과 겉돌아 제거
+- 결제모달: 토스 위젯 자체 제목과 겹치던 "결제 수단" 제목 제거
+- 성장기록 자녀 프로필 이미지가 파일이 없으면 깨져 보이던 문제 → 이름 첫 글자로 대체(`useImageError`로 SSR 단계 실패까지)
+
+---
+
+## 2026-10-22
+
+### [KEND] 디자인 리뉴얼 4단계 — 성장기록·결제모달 + 실측 검증 수정
+
+- 성장기록: 자녀 칩, 요약 카드(상위 N% 배지·백분위 바), 그래프 4개 세로 나열 → 카드 하나 + 탭 전환
+- 결제모달: 회색 바탕 카드(배송지/주문 상품/결제 수단/금액 요약). 기존 "최종 결제 금액"이 배송비 제외 금액을 보이던 표시 불일치 해소(결제 로직 변경 없음)
+- 실측 검증에서 찾은 3건: 스토어 상세 반투명 헤더가 sticky 탭을 가리던 문제, SSR된 로고가 hydration 전에 404로 실패하면 깨진 이미지가 남던 문제(`useImageError`), 찜 수가 항상 0이라 0보다 클 때만 노출
+
+---
+
+## 2026-10-15
+
+### [KEND] 디자인 리뉴얼 1~4단계 — 토큰·공통 컴포넌트·주요 화면 (Toss 심사 완료로 재개)
+
+- 1단계 토큰: primary=네이비 / secondary=연한 네이비 / accent=오렌지, gray를 시안 Ink/Line 값으로, radius·그림자 토큰, 폰트 Inter → Pretendard
+- 2단계: Button(pill·44px·CTA 그림자·outline 네이비 테두리·accent variant), Badge, Card(테두리 → 그림자)
+- 3단계 공통: Header(탭 화면 큰 타이틀/서브 화면 52px), 하단 탭(lucide 아이콘), Tabs, BottomSheet, ProductCard
+- 4단계 화면: 스토어 목록·상세(히어로·떠 있는 버튼·고정 카테고리 탭), 상품상세, 옵션 시트(칩 선택), 장바구니(체크박스 색 버그 수정 포함), 검색, 좋아요, 마이페이지
+- 데이터가 없는 시안 요소(통계 행, 인증 배지, 최근 검색어, 수량 스테퍼 등)는 가짜로 채우지 않고 제외
+
+---
+
 ## 2026-09-21
 
 ### [KEND] "최근 본 상품" 기능 구현 (Phase 3) — 실사용 테스트 통과

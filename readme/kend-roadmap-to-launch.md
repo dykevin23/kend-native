@@ -355,7 +355,7 @@
 | 마이그레이션 스크립트 정리 | 1일 |
 | 데이터 시딩 및 검증 | 1일 |
 
-> 상세 계획은 [environment-separation-plan.md](todo/environment-separation-plan.md) 참조. 실키 전환 전 반드시 선행.
+> 상세 계획은 [environment-separation-plan.md](active/environment-separation-plan.md) 참조. 실키 전환 전 반드시 선행.
 
 ---
 
