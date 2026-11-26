@@ -1,6 +1,6 @@
 # KEND-NATIVE 현재 상황 (Overview)
 
-> 최종 업데이트: 2026-09-16
+> 최종 업데이트: 2026-11-26
 > KEND-NATIVE의 현재 상태 단일 대시보드. 개발 진행마다 갱신한다.
 > 작성 표준 → [core/readme-structure-guide.md](./core/readme-structure-guide.md) §8 (방식 vs 내용)
 > 완료 상세 → [changelog-native.md](./changelog-native.md) / 큰 계획 → [kend-roadmap-to-launch.md](./kend-roadmap-to-launch.md)
@@ -13,21 +13,23 @@
 
 ---
 
-## 🚦 지금 상황 (2026-09-16)
+## 🚦 지금 상황 (2026-11-26)
 
-- 위치정보 네이티브 기능(expo-location 브릿지) 추가 — 웹의 `REQUEST_LOCATION` 요청에 권한 요청 후 좌표를 `LOCATION_RESULT`로 응답
-- **iOS buildNumber 23** — App Store Connect 업로드 완료, **실기기 테스트로 위치 기능 정상 동작 확인** ✅. **Android versionCode 21** — AAB 빌드 완료, **Play Console 업로드 및 실기기 테스트는 아직**
-- BC카드/페이북 앱카드 결제 딥링크·팝업 수정(iOS 22/Android 20)은 여전히 **실기기 결제 테스트 미수행** 상태로 이월
-- 직전 이슈(Toss 결제 취소 후 뒤로가기 → "이미 종료된 세션입니다")도 **실기기 테스트 체크리스트 미수행** → [todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md)
+- **iOS buildNumber 28** — 푸시 알림(expo-notifications) + 백그라운드 복귀 흰 화면 수정 포함 배포. **TestFlight 푸시 수신 확인** ✅, 흰 화면 수정은 테스트 체크리스트 미수행
+- **Android versionCode 23**은 2026-10-28(카드앱 스킴 수정) 빌드에 머물러 있음 — ⚠️ **그 이후의 운영/개발 앱 분리, 빌드 이미지 수정, 푸시 알림, 백그라운드 흰 화면 수정이 Android에 전혀 반영되지 않음.** 다음 Android 빌드 필요
+- 운영 앱이 바라보는 주소를 Vercel 프리뷰 → 정식 도메인 `kend.co.kr`로 전환(2026-11-13), buildNumber 27에서 **정상 접속 실기기 확인** ✅ (빌드 26은 EAS 빌드 이미지 이슈로 실행 직후 크래시 — 27에서 해소)
+- 스플래시 리뉴얼(Direction A) + 로딩 인터랙션(buildNumber 24), 카드앱 스킴 핸드오프 수정(buildNumber 25/versionCode 23)은 **배포 후 실기기 확인 결과가 기록에 없음** — 확인 필요
+- 위치정보 기능(2026-09-15 추가)은 iOS만 확인됐고 **Android 실기기 테스트가 계속 이월 중**
+- BC카드/페이북 결제 딥링크·팝업 핸드오프, Toss 결제 뒤로가기 수정도 여전히 **실기기 결제 플로우 테스트 미수행** → [todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md)
 - iOS 심사 정체 등 플랫폼 공통 현황은 kend overview 참조
 
 ---
 
 ## ✅ 최근 완료
 
+- 운영 앱 정식 도메인(`kend.co.kr`) 전환 및 정상 접속 확인 — iOS buildNumber 27
+- 앱 푸시 알림(expo-notifications) 추가 — iOS TestFlight 수신 확인, buildNumber 28
 - 위치정보 네이티브 기능(expo-location 브릿지) 추가 — iOS 23 빌드로 실기기 테스트, 정상 동작 확인
-- 결제 리다이렉트 구간 뒤로가기 차단 — Toss 세션 소진("이미 종료된 세션입니다") 방지. iOS 20 / Android 18 빌드에 반영, 각 스토어 테스트 트랙 배포
-- Expo SDK 53→57 업그레이드 (Apple iOS 26 SDK/Xcode 26 필수 정책 대응)
 
 > 상세 → [changelog-native.md](./changelog-native.md)
 
@@ -39,21 +41,25 @@
 |------|------|
 | [android-tester](./active/android-tester.md) | _상태 채울 것_ |
 | [internal-test-1st](./active/internal-test-1st.md) | _상태 채울 것_ |
-| [ios-review-rejection-apr14](./active/ios-review-rejection-apr14.md) | _상태 채울 것_ |
+| [ios-review-rejection-apr14](./active/ios-review-rejection-apr14.md) | _상태 채울 것_ (2026-04-14 리뷰 기준 — 이후 Guideline 5.1.1 건 등 별도 리젝 이력 있음, 문서 현행화 필요) |
 | [native-swipe-blacklist](./active/native-swipe-blacklist.md) | 결제 리다이렉트 구간 반영해 코드 적용 완료, 실기기 테스트 대기 |
 | [todo/native-payment-webview-handoff](./todo/native-payment-webview-handoff.md) | 결제 WebView 수정 배포·테스트 체크리스트 — 빌드/배포 완료, 체크리스트 미수행 |
-| 카드앱 딥링크·팝업 핸드오프 ([changelog](./changelog-native.md#2026-09-11)) | 앱스킴 핸드오프 + `window.open` 팝업 리다이렉트 구현·빌드 22/20 배포 완료, BC카드/페이북 실기기 테스트 대기 |
-| 위치정보 기능 Android 배포 ([changelog](./changelog-native.md#2026-09-15)) | iOS 실기기 테스트 완료, Android는 AAB(versionCode 21) Play Console 업로드·실기기 테스트 대기 |
+| Android 재빌드 밀림 ([changelog](./changelog-native.md#2026-11-13)) | 운영/개발 분리·빌드 이미지 수정·푸시 알림·백그라운드 흰 화면 수정이 쌓여있음, versionCode 23(10/28)에서 정지 |
+| 백그라운드 흰 화면 수정 테스트 ([changelog](./changelog-native.md#2026-11-25)) | iOS buildNumber 28에 배포, 장시간 백그라운드 재현 테스트 대기 |
+| 스플래시 리뉴얼·카드앱 스킴 수정 실기기 확인 ([changelog](./changelog-native.md#2026-10-27)) | buildNumber 24/25 배포, 실기기 확인 결과 미기재 |
+| 위치정보 기능 Android 테스트 ([changelog](./changelog-native.md#2026-09-15)) | iOS는 확인 완료, Android는 계속 이월 중 |
 
 ---
 
 ## 📋 다음 작업
 
-- [ ] Android versionCode 21 AAB를 Play Console에 업로드, 위치정보 기능 실기기 테스트
-- [ ] BC카드/페이북 등 앱카드 결제 실기기 재테스트 (buildNumber 22 / versionCode 20) — ISP 인증 화면 정상 전환, 팝업 리다이렉트 동작 확인
-- [ ] iOS TestFlight 그룹에 빌드 23 배정, 테스터 재초대 확인
-- [ ] 결제 뒤로가기 수정 실기기 테스트 ([todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md) 체크리스트 — 결제 취소→복귀, 소셜 로그인 회귀 등)
-- [ ] 테스트 통과 후 Android versionCode를 프로덕션으로 승격 (Target API 36 정책 알림 해제)
+- [ ] Android 재빌드 — 운영/개발 분리, kend.co.kr 전환, 푸시 알림, 백그라운드 흰 화면 수정 반영
+- [ ] Android에서 푸시 알림 수신 테스트
+- [ ] 백그라운드 장시간 후 복귀 흰 화면 수정 실기기 테스트 (iOS/Android)
+- [ ] 스플래시 리뉴얼·로딩 인터랙션, 카드앱 스킴 핸드오프 수정 실기기 확인
+- [ ] 위치정보 기능 Android 실기기 테스트
+- [ ] BC카드/페이북 결제 플로우 + Toss 결제 뒤로가기 수정 실기기 테스트 ([todo/native-payment-webview-handoff.md](./todo/native-payment-webview-handoff.md) 체크리스트)
+- [ ] 테스트 통과 항목부터 Android를 프로덕션 트랙으로 승격
 
 ---
 
@@ -89,11 +95,12 @@
 - [ ] WebView ↔ 네이티브 에러 브리지
 - [ ] 네이티브 뒤로가기/스와이프 차단 (결제·폼 구간) — 코드 적용됨, 실기기 테스트 대기
 - [ ] 앱 크래시 리포팅 (Sentry/Crashlytics 검토)
-- [ ] 카메라/갤러리 권한 처리
+- [x] 카메라/갤러리 권한 처리 — 권한 문구에 실제 사용처 명시(Guideline 5.1.1 대응) 완료
 - [ ] iOS 심사 통과 (kend와 공통 블로커)
 
 ---
 
 ## 🔮 장기 로드맵 (출시 후)
 
-> ← _native 작업 시 채울 것_ (푸시 알림 등)
+- 푸시 알림(2026-11-20 추가, iOS 확인됨)은 기본 수신까지만 — 세그먼트별 발송, 딥링크 고도화 등은 kend 측 계획 참고
+- UIScene 생명주기 적용 (2026-11-18 빌드 이미지 이슈로 임시 우회, 과제로 남김)

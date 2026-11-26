@@ -7,6 +7,90 @@ KEND-NATIVE React Native WebView 앱의 주요 변경사항을 날짜별로 기�
 
 ---
 
+## 2026-11-25
+
+### [KEND-NATIVE] 장시간 백그라운드 후 복귀 시 흰 화면 수정
+
+- **증상**: iOS가 메모리 확보를 위해 백그라운드로 간 앱의 WebView 콘텐츠 프로세스를 종료시키는데, 앱 자체는 살아있어 포그라운드로 복귀하면 흰 화면만 남는 문제
+- **수정** (`app/index.tsx`): iOS `onContentProcessDidTerminate`, Android `onRenderProcessGone`(미처리 시 OS가 앱 자체를 종료함) 핸들러 추가 — 감지 시 로딩 표시 후 보던 화면을 reload
+- 아래 buildNumber 28에 포함해 배포. **실기기 장시간 백그라운드 재현 테스트는 별도 확인 필요** (이번 배포에서 확인된 건 푸시 알림 수신 쪽)
+
+### [KEND-NATIVE] iOS buildNumber 28 빌드·배포 — 푸시 알림 + 백그라운드 흰 화면 수정
+
+- 아래 푸시 알림(2026-11-20)과 위 흰 화면 수정 포함해 iOS production 빌드 28 → App Store Connect 업로드
+- **TestFlight에서 푸시 알림 수신 확인** ✅ (백그라운드 흰 화면 수정은 테스트 체크리스트 미수행)
+- Android는 이번 빌드에 포함되지 않음 (versionCode 23 유지) — Android 쪽 반영은 추후 과제
+
+---
+
+## 2026-11-20
+
+### [KEND-NATIVE] 앱 푸시 알림 추가 — expo-notifications 브릿지
+
+- `expo-notifications` 설치 및 config plugin 등록 (iOS 푸시 권한 entitlement 추가)
+- 웹↔네이티브 브릿지(`lib/push.ts`) 신설 — 웹 요청에 응답:
+  - `GET_PUSH_STATUS`: OS 팝업 없이 현재 권한 상태 + 푸시 토큰 조회
+  - `REQUEST_PUSH_PERMISSION`: OS 권한 팝업 표시
+  - `OPEN_APP_SETTINGS`: 설정 앱의 앱 권한 화면으로 이동
+  - 토큰 저장 자체는 웹이 사용자 세션으로 처리 (kend `push-notification-plan.md` 브릿지 규약을 따름)
+- 알림 탭 시 `data.url`(앱 내 경로)을 WebView에서 열도록 처리 — 앱이 꺼져 있던 상태에서 탭했다면 첫 로드 완료 후 이동
+- 앱이 켜져 있는 상태로 수신한 알림도 배너로 표시, Android 알림 채널 생성
+- iOS는 2026-11-25 buildNumber 28 배포로 TestFlight 수신 확인. **Android는 테스트 상태 미기재**
+
+---
+
+## 2026-11-18
+
+### [KEND-NATIVE] 운영 앱 buildNumber 26 실행 직후 크래시 — 빌드 이미지 원인 파악 및 27로 수정 배포
+
+- **buildNumber 26**: 아래(2026-11-13) 운영/개발 앱 분리 반영해 배포했으나, EAS `production` 프로필의 `ios.image: "latest"`가 iOS 27 SDK(최신 Xcode) 이미지로 넘어가면서 UIScene 생명주기를 채택하지 않은 앱이 실행 직후 바로 종료됨(`_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`)
+- **원인**: 정상 동작이 확인된 개발 빌드(`preview` 프로필)는 같은 이미지 고정이 없어 문제가 없었음 — `production`에만 걸려 있던 `ios.image: "latest"` 지정이 원인
+- **수정** (`eas.json`): `production`의 `ios.image: "latest"` 지정 제거, EAS 기본 이미지로 통일. UIScene 생명주기 자체 적용은 별도 과제로 남김
+- **buildNumber 27**로 재빌드·배포 후 **운영 주소(`kend.co.kr`) 정상 접속 실기기 확인** ✅
+
+---
+
+## 2026-11-13
+
+### [KEND-NATIVE] 운영 앱 / 개발 앱 분리 — 빌드 프로필별 웹 주소·번들 ID·스킴
+
+- `app.json`(정적) → `app.config.ts`(동적 설정)로 전환. 환경변수 `APP_VARIANT=development`면 "Kend Dev"(번들 ID `com.kend.app.dev`, 스킴 `kend-dev`, kend 개발 서버 주소), 아니면 운영 "Kend"(`com.kend.app`, 스킴 `kend`, `https://kend.co.kr`)
+- `eas.json`: `development`/`preview` 프로필에 `APP_VARIANT=development` 환경변수 지정, `production`은 운영값 사용
+- `app/index.tsx`: 하드코딩돼 있던 `WEB_APP_URL`/`KEND_HOST`(`kend-seven.vercel.app`)를 설정값에서 읽어오도록 변경, 호스트는 URL에서 자동 계산
+- 운영 앱이 바라보는 주소가 Vercel 프리뷰(`kend-seven.vercel.app`)에서 정식 도메인(`kend.co.kr`)으로 전환됨 — 접속 확인은 위 2026-11-18 buildNumber 27 항목 참고
+
+---
+
+## 2026-10-28
+
+### [KEND-NATIVE] 카드앱 스킴 핸드오프 수정 + 카메라/사진 권한 문구 구체화 (Guideline 5.1.1 대응)
+
+- **증상/원인**: 앱스킴 핸드오프 시 `Linking.canOpenURL()` 확인 후에만 `openURL()`을 호출하던 기존 방식이, 미등록 카드앱 스킴이나 `itms-apps://` 스토어 폴백 링크를 `canOpenURL`이 지원 안 함으로 판단해 막아버려 핸드오프가 안 되는 경우가 있었음
+- **수정** (`app/index.tsx`): `canOpenURL` 체크를 제거하고 `openURL`을 직접 호출하도록 변경
+- **수정** (`app.json`): iOS 카메라/사진 라이브러리 권한 문구에 실제 사용처(프로필 사진, 자녀 정보, 리뷰 작성)를 구체적으로 명시 — Apple Guideline 5.1.1(데이터 수집 목적 명확화) 대응
+
+### [KEND-NATIVE] iOS buildNumber 25 / Android versionCode 23 빌드·배포
+
+- 위 카드앱 스킴·권한 문구 수정 포함 EAS production 빌드
+
+---
+
+## 2026-10-27
+
+### [KEND-NATIVE] 스플래시 화면 리뉴얼(Direction A) — 코너 쿼터서클 수정 + 로딩 인터랙션 추가
+
+- **배경**: 기존 스플래시 코너의 쿼터서클이 디자인 의도(opacity 0.04의 은은한 워터마크)와 다르게 완전 불투명으로 렌더되어 투박해 보이는 문제 발견. Claude Design 캔버스로 3가지 리뉴얼 방향(미니멀 리파인 / 브랜드 그라디언트 / 성장 마크)을 시안으로 제시, Direction A(미니멀 리파인) 선택
+- **수정** (`assets/images/kend-splash-1080x1920.png`, `kend-splash.svg`): 코너 쿼터서클 → 얇은 아크 라인 + 오렌지 포인트 점으로 교체, 언더라인도 네이비 → 오렌지로 변경. SVG 소스를 PNG와 동일한 1080x1920 좌표계로 재정렬 (기존엔 375x812라 PNG와 비율이 달라 소스 역할을 못 하고 있었음)
+- **로딩 인터랙션 추가** (`app/index.tsx`): 네이티브 스플래시를 마운트 직후 바로 내리고, 같은 배경색의 브랜드 로딩 오버레이(`FirstLoadOverlay`)가 이어받아 WebView 첫 로드가 끝날 때까지 로고 진입 애니메이션 + 오렌지 점 3개 로딩 인디케이터를 보여주도록 변경 (기존엔 첫 로드 중 아무 인터랙션 없이 네이티브 스플래시만 떠 있었음, `react-native-reanimated` 사용 — 새 의존성 추가 없음). 페이지 전환 시 로딩 오버레이도 기존 `ActivityIndicator`(네이비)에서 동일한 점 인디케이터(오렌지)로 교체해 톤 통일
+
+### [KEND-NATIVE] iOS buildNumber 24 / Android versionCode 22 빌드·배포
+
+- 위 스플래시 리뉴얼 포함 EAS production 빌드
+- iOS: App Store Connect 업로드 완료. Android: AAB를 Play Console에 수동 업로드 안내
+- **실기기로 스플래시·로딩 인터랙션 확인 예정이었으나, 이후 세션 기록에 결과 미기재** — 다음 확인 필요
+
+---
+
 ## 2026-09-15
 
 ### [KEND-NATIVE] 위치정보 네이티브 기능 추가 — expo-location 브릿지
